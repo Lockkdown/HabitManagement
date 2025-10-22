@@ -1,0 +1,19 @@
+# Environment variables
+.env
+
+# Build results
+bin/
+obj/
+
+# User-specific files
+*.user
+*.userosscache
+*.suo
+
+# Visual Studio cache/options
+.vs/
+
+# Database
+*.db
+*.db-shm
+*.db-wal

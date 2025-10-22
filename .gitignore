@@ -1,0 +1,325 @@
+# ============================================
+# .gitignore cho Project Habit Management
+# Backend: .NET 9.0 | Frontend: Flutter
+# ============================================
+
+# ============================================
+# BACKEND - .NET / C#
+# ============================================
+
+# Build results
+backend/bin/
+backend/obj/
+backend/out/
+backend/.vs/
+backend/.vscode/
+
+# User-specific files
+backend/*.user
+backend/*.suo
+backend/*.userosscache
+backend/*.sln.docstates
+
+# Rider (JetBrains IDE)
+backend/.idea/
+backend/*.sln.iml
+
+# Visual Studio cache/options
+backend/.vs/
+backend/*.rsuser
+
+# Build Results of an ATL Project
+backend/[Dd]ebugPS/
+backend/[Rr]eleasePS/
+backend/x64/
+backend/x86/
+backend/[Aa][Rr][Mm]/
+backend/[Aa][Rr][Mm]64/
+backend/bld/
+backend/[Bb]in/
+backend/[Oo]bj/
+backend/[Ll]og/
+backend/[Ll]ogs/
+
+# ⚠️ QUAN TRỌNG - Các file nhạy cảm (KHÔNG BAO GIỜ PUSH)
+backend/.env
+backend/appsettings.Development.json
+backend/secrets.json
+
+# Các file log
+backend/*.log
+backend/*.log.*
+backend/logs/
+
+# NuGet Packages
+backend/*.nupkg
+backend/*.snupkg
+backend/**/packages/*
+backend/packages/
+
+# Database files (nếu có SQLite local)
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+backend/*.sqlite
+backend/*.sqlite3
+
+# ============================================
+# FRONTEND - Flutter
+# ============================================
+
+# Miscellaneous
+frontend/*.class
+frontend/*.log
+frontend/*.pyc
+frontend/*.swp
+frontend/.DS_Store
+frontend/.atom/
+frontend/.buildlog/
+frontend/.history
+frontend/.svn/
+frontend/migrate_working_dir/
+
+# IntelliJ related
+frontend/*.iml
+frontend/*.ipr
+frontend/*.iws
+frontend/.idea/
+
+# Visual Studio Code related
+frontend/.vscode/
+
+# Flutter/Dart/Pub related
+frontend/**/doc/api/
+frontend/**/ios/Flutter/.last_build_id
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.packages
+frontend/.pub-cache/
+frontend/.pub/
+frontend/build/
+
+# ⚠️ QUAN TRỌNG - File nhạy cảm (KHÔNG BAO GIỜ PUSH)
+frontend/.env
+frontend/google-services.json
+frontend/android/app/google-services.json
+frontend/ios/Runner/GoogleService-Info.plist
+frontend/ios/Flutter/Generated.xcconfig
+frontend/ios/Flutter/flutter_export_environment.sh
+
+# Symbolication related
+frontend/app.*.symbols
+
+# Obfuscation related
+frontend/app.*.map.json
+
+# Android related
+frontend/**/android/**/gradle-wrapper.jar
+frontend/**/android/.gradle
+frontend/**/android/captures/
+frontend/**/android/gradlew
+frontend/**/android/gradlew.bat
+frontend/**/android/local.properties
+frontend/**/android/**/GeneratedPluginRegistrant.java
+frontend/**/android/key.properties
+frontend/*.jks
+frontend/*.keystore
+
+# iOS/XCode related
+frontend/**/ios/**/*.mode1v3
+frontend/**/ios/**/*.mode2v3
+frontend/**/ios/**/*.moved-aside
+frontend/**/ios/**/*.pbxuser
+frontend/**/ios/**/*.perspectivev3
+frontend/**/ios/**/*sync/
+frontend/**/ios/**/.sconsign.dblite
+frontend/**/ios/**/.tags*
+frontend/**/ios/**/.vagrant/
+frontend/**/ios/**/DerivedData/
+frontend/**/ios/**/Icon?
+frontend/**/ios/**/Pods/
+frontend/**/ios/**/.symlinks/
+frontend/**/ios/**/profile
+frontend/**/ios/**/xcuserdata
+frontend/**/ios/.generated/
+frontend/**/ios/Flutter/App.framework
+frontend/**/ios/Flutter/Flutter.framework
+frontend/**/ios/Flutter/Flutter.podspec
+frontend/**/ios/Flutter/Generated.xcconfig
+frontend/**/ios/Flutter/ephemeral/
+frontend/**/ios/Flutter/app.flx
+frontend/**/ios/Flutter/app.zip
+frontend/**/ios/Flutter/flutter_assets/
+frontend/**/ios/Flutter/flutter_export_environment.sh
+frontend/**/ios/ServiceDefinitions.json
+frontend/**/ios/Runner/GeneratedPluginRegistrant.*
+
+# Web related
+frontend/**/web/favicon.png
+frontend/**/web/icons/Icon-192.png
+frontend/**/web/icons/Icon-512.png
+frontend/**/web/icons/Icon-maskable-192.png
+frontend/**/web/icons/Icon-maskable-512.png
+
+# Coverage
+frontend/coverage/
+
+# Exceptions to above rules
+!frontend/**/ios/**/default.mode1v3
+!frontend/**/ios/**/default.mode2v3
+!frontend/**/ios/**/default.pbxuser
+!frontend/**/ios/**/default.perspectivev3
+
+# ============================================
+# OS Generated Files
+# ============================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ============================================
+# IDE và Editor
+# ============================================
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# JetBrains Rider / IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# ============================================
+# Temporary & Cache Files
+# ============================================
+
+*.tmp
+*.temp
+*.cache
+*.pid
+*.seed
+*.pid.lock
+
+# ============================================
+# Documentation (tùy chọn - có thể bỏ comment nếu muốn push)
+# ============================================
+
+# Nếu không muốn push file tài liệu build:
+# docs/_build/
+# site/
+
+# ============================================
+# Database Backups (nếu có)
+# ============================================
+
+*.bak
+*.backup
+*.sql.gz
+*.dump
+
+# ============================================
+# Các file test và mock data nhạy cảm
+# ============================================
+
+# Test data với thông tin thật
+**/test-data-real.json
+**/mock-users.json
+
+# ============================================
+# Node modules (nếu có tools JS/TS)
+# ============================================
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ============================================
+# QUAN TRỌNG - Luôn kiểm tra trước khi commit!
+# ============================================
+
+# File .env của cả backend và frontend
+**/.env
+**/.env.local
+**/.env.*.local
+
+# API keys và secrets
+**/secrets.json
+**/appsettings.Development.json
+**/*secret*
+**/*password*
+**/*apikey*
+
+# Certificates và keys
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+*.cer
+
+# ============================================
+# Project-specific ignores
+# ============================================
+
+# Cascade/Windsurf workspace state
+.windsurf
+
+# Local build/auth docs not to commit
+build_auth.md
+db_auth.md
