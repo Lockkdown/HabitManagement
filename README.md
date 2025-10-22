@@ -1,6 +1,11 @@
 # 🎯 Habit Management - Ứng dụng Quản lý Thói quen
 
-Ứng dụng quản lý thói quen cá nhân với hệ thống xác thực an toàn, được xây dựng với .NET 9.0 và Flutter.
+# Đây là đồ án môn học của môn "Lập trình trên thiết bị di động" 
+# Các thành viên: 
+- Trương Hoàng Phúc
+- Nguyễn Trịnh Lân
+- Hoàng Viết Nguyên
+- Ngô Xuân Hạo
 
 ## 📋 Mục lục
 
