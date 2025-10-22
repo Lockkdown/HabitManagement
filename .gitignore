@@ -302,7 +302,6 @@ yarn-error.log*
 **/secrets.json
 **/appsettings.Development.json
 **/*secret*
-**/*password*
 **/*apikey*
 
 # Certificates và keys
