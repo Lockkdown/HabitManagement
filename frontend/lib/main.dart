@@ -54,7 +54,7 @@ class MyApp extends StatelessWidget {
       // Theme
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.light, // Mặc định Light mode
+      themeMode: ThemeMode.dark, // Mặc định Dark mode
       
       // Màn hình khởi động
       home: const AppInitializer(),
