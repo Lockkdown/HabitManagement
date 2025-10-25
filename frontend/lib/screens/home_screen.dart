@@ -12,6 +12,9 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 
 import 'package:easy_date_timeline/easy_date_timeline.dart';
 
+// ignore: depend_on_referenced_packages
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:intl/intl.dart';                 // <-- THÊM IMPORT
 
 import 'package:intl/date_symbol_data_local.dart';
@@ -25,6 +28,12 @@ import '../api/habit_api_service.dart';
 import '../utils/icon_utils.dart';
 
 import 'create_habit_screen.dart';
+
+import 'habit_schedule_screen.dart';
+
+import '../api/habit_schedule_api_service.dart';
+
+import '../services/storage_service.dart';
 
 // import 'edit_habit_screen.dart'; // (TODO)
 
@@ -56,16 +65,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   bool _isCompletingHabit = false;
 
+  String? currentUserId;
 
-
-  @override
+  Future<void> _loadCurrentUserId() async {
+    final storageService = StorageService();
+    currentUserId = await storageService.getUserId();
+    debugPrint('Loaded userId from StorageService: $currentUserId');
+  }
 
   void initState() {
 
     super.initState();
 
-    initializeDateFormatting('vi_VN', null).then((_) => _loadHabits());
-
+    initializeDateFormatting('vi_VN', null).then((_) async {
+      await _loadCurrentUserId();  // ✅ Gọi trước
+      await _loadHabits();         // ✅ Sau khi có userId mới load habits
+    });
   }
 
 
@@ -77,6 +92,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (!mounted) return;
 
       setState(() => _isLoading = true);
+
+      // Test authentication first
+      try {
+        final habitScheduleApi = HabitScheduleApiService();
+        final authTest = await habitScheduleApi.testAuth();
+        debugPrint('Auth test result: $authTest');
+      } catch (e) {
+        debugPrint('Auth test failed: $e');
+      }
 
       final habits = await _habitApiService.getHabits();
 
@@ -343,87 +367,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
 
   Widget build(BuildContext context) {
-
     return Scaffold(
-
       appBar: AppBar(
-
         title: const Text('Habit Management'),
-
         backgroundColor: Colors.transparent, elevation: 0,
-
         actions: [
-
           IconButton(
-
             icon: const Icon(LucideIcons.logOut),
-
             onPressed: () async {
-
               final confirm = await showDialog<bool>(
-
                 context: context,
-
                 builder: (context) => AlertDialog(
-
                   backgroundColor: Colors.grey[850],
-
                   title: const Text('Đăng xuất', style: TextStyle(color: Colors.white)),
-
                   content: const Text('Bạn có chắc muốn đăng xuất?', style: TextStyle(color: Colors.white70)),
-
                   actions: [
-
                     TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
-
                     ElevatedButton(
-
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-
                       onPressed: () => Navigator.pop(context, true), child: const Text('Đăng xuất'),
-
                     ),
-
                   ],
-
                 ),
-
               );
-
               if (confirm == true) await ref.read(authProvider.notifier).logout();
-
             },
-
           ),
-
         ],
-
       ),
 
       body: _buildBody(),
-
       bottomNavigationBar: _buildBottomNavigationBar(),
-
       floatingActionButton: _selectedIndex == 1
-
           ? FloatingActionButton(
-
               onPressed: () async {
-
                 final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => const CreateHabitScreen()));
-
                 if (result == true) _loadHabits();
-
               },
-
               child: const Icon(LucideIcons.plus),
-
             )
-
           : null,
-
     );
-
   }
 
 
@@ -449,9 +433,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
 
   Widget _buildTodayScreen() {
-
-    return const Center(child: Text('Hôm nay', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)));
-
+    return Column(
+      children: [
+        Expanded(
+          child: HabitScheduleScreen(userId: currentUserId ?? ''),
+        ),
+      ],
+    );
   }
 
 
@@ -502,6 +490,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final DateTime today = DateUtils.dateOnly(DateTime.now());
 
+    final bool isDoneToday = doneDates.any((date) => DateUtils.isSameDay(date, today));
+
+
     DateTime startOfWeek = DateUtils.addDaysToDate(today, 1 - today.weekday);
 
     DateTime endOfWeek = DateUtils.addDaysToDate(startOfWeek, 6);
@@ -510,63 +501,67 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Card(
 
-      color: Colors.grey[850],
+      color: Colors.grey[850], // Màu nền của card
 
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 16), // Khoảng cách giữa các card
 
       child: Padding(
 
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16), // Padding bên trong card
 
-        child: Column(
+        child: Column( 
 
           crossAxisAlignment: CrossAxisAlignment.start,
 
           children: [
 
-            Row(children: [
-
-              Container(
-
-                width: 50, height: 50,
-
-                decoration: BoxDecoration(
-
-                  color: Color(int.parse(habit.category.color.replaceFirst('#', '0xFF'))),
-
-                  borderRadius: BorderRadius.circular(12),
-
+            Row(children: [ // Thông tin thói quen và nút hoàn thành
+              // Nút tròn để đánh dấu hoàn thành thói quen (đã di chuyển lên đầu)
+              InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () => _completeHabitForDate(habit, today),
+                splashColor: Colors.grey.withOpacity(0.3), // Thêm màu hiệu ứng gợn sóng
+                highlightColor: Colors.grey.withOpacity(0.1), // Thêm màu khi nhấn giữ
+                child: Ink(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isDoneToday ? Colors.green : Colors.grey,
+                      width: 2,
+                    ),
+                    color: isDoneToday ? Colors.green.withOpacity(0.2) : Colors.transparent,
+                  ),
+                  child: Center(
+                    child: isDoneToday ? const Icon(Icons.check, color: Colors.green) : null,
+                  ),
                 ),
-
+              ),
+              
+              const SizedBox(width: 12),
+              Container(
+                width: 50, height: 50,
+                decoration: BoxDecoration(
+                  color: Color(int.parse(habit.category.color.replaceFirst('#', '0xFF'))),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: Icon(IconUtils.getIconData(habit.category.icon), color: Colors.white, size: 24),
-
               ),
-
               const SizedBox(width: 16),
-
               Expanded(
-
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
                   Text(habit.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-
                   const SizedBox(height: 4),
-
                   Text(habit.category.name, style: TextStyle(fontSize: 14, color: Colors.grey[400])),
-
                 ]),
-
               ),
 
-              IconButton(
-
-                onPressed: () => _showHabitOptions(context, habit),
-
-                icon: Icon(Icons.more_vert, color: Colors.grey[400]),
-
-              ),
-
-            ]),
+              IconButton(// Nút tùy chọn
+                  onPressed: () => _showHabitOptions(context, habit),
+                  icon: Icon(Icons.more_vert, color: Colors.grey[400]),
+                ),
+              ]),
 
             const SizedBox(height: 16),
 
@@ -627,35 +622,78 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Color textColor = Colors.white70;
 
 
+                // 🔹 Hiệu ứng đặc biệt cho "Hôm nay  "
+                if (isToday == true) {
+                  return TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.8, end: 1.2),
+                    duration: const Duration(seconds: 1),
+                    curve: Curves.easeInOut,
+                    builder: (context, scale, child) {
+                      return Transform.scale(
+                        scale: scale,
+                        child: Container(
+                          width: 38,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: bgColor,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.red.withOpacity(0.6),
+                                blurRadius: 12,
+                                spreadRadius: 3,
+                              ),
+                            ],
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                EasyDateFormatter.shortDayName(dateDt, 'vi_VN').toUpperCase(),
+                                style: const TextStyle(color: Colors.white70, fontSize: 12),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                dateDt.day.toString(),
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                    onEnd: () {
+                      // 👇 Lặp lại animation để hiệu ứng "pulse" liên tục
+                      Future.delayed(Duration.zero, () {
+                        (context as Element).markNeedsBuild();
+                      });
+                    },
+                  );
+                }
+
 
                 // 1. SỬA LỖI BOOLEAN: Dùng `isToday == true`
 
                 if (isDone) {
-
                   bgColor = Colors.green;
-
                   textColor = Colors.white;
-
                 } else if (isToday == true) { // Explicitly check for true
-
                   bgColor = Colors.red;
-
                   textColor = Colors.white;
-
                 }
 
 
-
                 return Container(
-
                   width: 38, height: 52,
-
                   decoration: BoxDecoration(
-
                     color: bgColor,
-
                     borderRadius: BorderRadius.circular(bgColor == Colors.transparent ? 0 : 20),
-
+                    border: isToday == true ? Border.all(color: Colors.white, width: 2) : null,
                   ),
 
                   child: Column(

@@ -37,7 +37,7 @@
 
 - ✅ **Theme & UI**:
   - Dark mode mặc định
-  - Màu sắc phù hợp với thiết kế trong hình
+  - Màu sắc phù hợp với thiết kế 
   - Responsive design
   - Material Design 3
 

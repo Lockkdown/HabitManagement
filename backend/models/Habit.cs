@@ -112,6 +112,11 @@ public class Habit
     /// Danh sách các lần thực hiện thói quen.
     /// </summary>
     public virtual ICollection<HabitCompletion> Completions { get; set; } = new List<HabitCompletion>();
+
+    /// <summary>
+    /// Danh sách lịch trình của thói quen.
+    /// </summary>
+    public virtual ICollection<HabitSchedule> HabitSchedules { get; set; } = new List<HabitSchedule>();
 }
 
 /// <summary>
@@ -139,7 +144,7 @@ public class HabitCompletion
     /// Ngày hoàn thành thói quen.
     /// </summary>
     [Required]
-    public DateTime CompletedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CompletedAt { get; set; }
 
     /// <summary>
     /// Ghi chú cho lần hoàn thành này.

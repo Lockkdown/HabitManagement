@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart'; // Import for debugPrint
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/habit_model.dart';
 import '../models/category_model.dart';
 import '../services/storage_service.dart'; // Assuming storage_service is in ../services/
@@ -22,6 +23,8 @@ class HabitApiService {
   /// Create headers with authorization and ngrok skip
   Future<Map<String, String>> _getHeaders() async {
     final token = await _getAccessToken();
+    debugPrint("Token retrieved: ${token != null ? 'EXISTS (${token.length} chars)' : 'NULL'}");
+    
     // Return empty headers if no token (adjust based on your API needs)
     if (token == null) {
        debugPrint("Warning: No access token found for API request.");
@@ -30,11 +33,15 @@ class HabitApiService {
          'ngrok-skip-browser-warning': 'true',
        };
     }
-    return {
+    
+    final headers = {
       'Content-Type': 'application/json; charset=UTF-8', // Added charset=UTF-8
       'Authorization': 'Bearer $token',
       'ngrok-skip-browser-warning': 'true',
     };
+    
+    debugPrint("Headers created: $headers");
+    return headers;
   }
 
   // ========== CATEGORY ENDPOINTS ==========
@@ -145,10 +152,17 @@ class HabitApiService {
   /// Get list of all user habits
   Future<List<HabitModel>> getHabits() async {
     try {
+      debugPrint("Getting habits from: $_baseUrl/api/habit");
+      final headers = await _getHeaders();
+      debugPrint("Making request with headers: $headers");
+      
       final response = await http.get(
         Uri.parse('$_baseUrl/api/habit'),
-        headers: await _getHeaders(),
+        headers: headers,
       );
+
+      debugPrint("Response status: ${response.statusCode}");
+      debugPrint("Response body: ${response.body}");
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
@@ -260,11 +274,13 @@ class HabitApiService {
     try {
       final body = <String, dynamic>{};
       if (notes != null) body['notes'] = notes;
-      // Ensure completedAt is sent in UTC ISO8601 format if provided
-      body['completedAt'] = (completedAt ?? DateTime.now()).toUtc().toIso8601String();
+      // Send completedAt in local time ISO8601 format if provided
+      final completionTime = completedAt ?? DateTime.now();
+      body['completedAt'] = completionTime.toIso8601String();
 
       final headers = await _getHeaders();
       debugPrint('Completing habit $id with headers: $headers');
+      debugPrint('Completing habit $id with completionTime: $completionTime');
       debugPrint('Completing habit $id with body: ${json.encode(body)}');
 
 
@@ -313,4 +329,5 @@ class HabitApiService {
       throw Exception('Lỗi kết nối: $e');
     }
   }
+  
 }
