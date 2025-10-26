@@ -65,12 +65,14 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+
 builder.Services.AddAuthorization();
 
 // Add MemoryCache (cần cho AuthService lưu token verification)
 builder.Services.AddMemoryCache();
 
 // Add Services
+builder.Services.AddScoped<backend.Services.HabitScheduleService>();
 builder.Services.AddScoped<backend.Services.EmailService>();
 builder.Services.AddScoped<backend.Services.AuthService>();
 
@@ -149,6 +151,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Habit Management API v1");
+        c.RoutePrefix = string.Empty;
     });
 }
 

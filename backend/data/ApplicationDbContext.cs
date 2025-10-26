@@ -32,86 +32,91 @@ public class ApplicationDbContext : IdentityDbContext<User>
     /// <summary>
     /// DbSet cho lần hoàn thành thói quen.
     /// </summary>
-    public DbSet<HabitCompletion> HabitCompletions { get; set; }
+    public DbSet<HabitCompletion> HabitCompletions { get; set; } 
 
-    /// <summary>
-    /// Cấu hình các entity models khi khởi tạo database schema.
-    /// </summary>
-    /// <param name="builder">ModelBuilder để cấu hình entities</param>
-    protected override void OnModelCreating(ModelBuilder builder)
-    {
-        base.OnModelCreating(builder);
 
-        // Cấu hình Category
-        builder.Entity<Category>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.Color).IsRequired().HasMaxLength(7);
-            entity.Property(e => e.Icon).IsRequired().HasMaxLength(50);
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
-            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+    public DbSet<HabitSchedule> HabitSchedules { get; set; }
 
-            // Relationship với User
-            entity.HasOne(e => e.User)
-                  .WithMany()
-                  .HasForeignKey(e => e.UserId)
-                  .OnDelete(DeleteBehavior.Cascade);
-        });
 
-        // Cấu hình Habit
-        builder.Entity<Habit>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.Description).HasMaxLength(1000);
-            entity.Property(e => e.Frequency).IsRequired().HasMaxLength(20);
-            entity.Property(e => e.CustomFrequencyUnit).HasMaxLength(20);
-            entity.Property(e => e.ReminderType).HasMaxLength(20);
-            entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
-            entity.Property(e => e.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
 
-            // Relationship với User
-            entity.HasOne(e => e.User)
-                  .WithMany()
-                  .HasForeignKey(e => e.UserId)
-                  .OnDelete(DeleteBehavior.Cascade);
+      /// <summary>
+      /// Cấu hình các entity models khi khởi tạo database schema.
+      /// </summary>
+      /// <param name="builder">ModelBuilder để cấu hình entities</param>
+      protected override void OnModelCreating(ModelBuilder builder)
+      {
+            base.OnModelCreating(builder);
 
-            // Relationship với Category
-            entity.HasOne(e => e.Category)
-                  .WithMany(c => c.Habits)
-                  .HasForeignKey(e => e.CategoryId)
-                  .OnDelete(DeleteBehavior.Restrict);
-        });
+            // Cấu hình Category
+            builder.Entity<Category>(entity =>
+            {
+                  entity.HasKey(e => e.Id);
+                  entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+                  entity.Property(e => e.Color).IsRequired().HasMaxLength(7);
+                  entity.Property(e => e.Icon).IsRequired().HasMaxLength(50);
+                  entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+                  entity.Property(e => e.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
 
-        // Cấu hình HabitCompletion
-        builder.Entity<HabitCompletion>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Notes).HasMaxLength(500);
-            entity.Property(e => e.CompletedAt).HasDefaultValueSql("GETUTCDATE()");
+                  // Relationship với User
+                  entity.HasOne(e => e.User)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
 
-            // Relationship với Habit
-            entity.HasOne(e => e.Habit)
-                  .WithMany(h => h.Completions)
-                  .HasForeignKey(e => e.HabitId)
-                  .OnDelete(DeleteBehavior.Cascade);
-        });
+            // Cấu hình Habit
+            builder.Entity<Habit>(entity =>
+            {
+                  entity.HasKey(e => e.Id);
+                  entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+                  entity.Property(e => e.Description).HasMaxLength(1000);
+                  entity.Property(e => e.Frequency).IsRequired().HasMaxLength(20);
+                  entity.Property(e => e.CustomFrequencyUnit).HasMaxLength(20);
+                  entity.Property(e => e.ReminderType).HasMaxLength(20);
+                  entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+                  entity.Property(e => e.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
 
-        // Tạo indexes để tối ưu performance
-        builder.Entity<Category>()
-              .HasIndex(e => e.UserId);
+                  // Relationship với User
+                  entity.HasOne(e => e.User)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
 
-        builder.Entity<Habit>()
-              .HasIndex(e => e.UserId);
+                  // Relationship với Category
+                  entity.HasOne(e => e.Category)
+                    .WithMany(c => c.Habits)
+                    .HasForeignKey(e => e.CategoryId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
 
-        builder.Entity<Habit>()
-              .HasIndex(e => e.CategoryId);
+            // Cấu hình HabitCompletion
+            builder.Entity<HabitCompletion>(entity =>
+            {
+                  entity.HasKey(e => e.Id);
+                  entity.Property(e => e.Notes).HasMaxLength(500);
+                  entity.Property(e => e.CompletedAt).HasDefaultValueSql("GETUTCDATE()");
 
-        builder.Entity<HabitCompletion>()
-              .HasIndex(e => e.HabitId);
+                  // Relationship với Habit
+                  entity.HasOne(e => e.Habit)
+                    .WithMany(h => h.Completions)
+                    .HasForeignKey(e => e.HabitId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
 
-        builder.Entity<HabitCompletion>()
-              .HasIndex(e => e.CompletedAt);
-    }
+            // Tạo indexes để tối ưu performance
+            builder.Entity<Category>()
+                  .HasIndex(e => e.UserId);
+
+            builder.Entity<Habit>()
+                  .HasIndex(e => e.UserId);
+
+            builder.Entity<Habit>()
+                  .HasIndex(e => e.CategoryId);
+
+            builder.Entity<HabitCompletion>()
+                  .HasIndex(e => e.HabitId);
+
+            builder.Entity<HabitCompletion>()
+                  .HasIndex(e => e.CompletedAt);
+      }
 }
