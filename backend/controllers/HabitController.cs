@@ -26,47 +26,80 @@ public class HabitController : ControllerBase
     /// <summary>
     /// Lấy danh sách tất cả thói quen của người dùng hiện tại.
     /// </summary>
-    [HttpGet]
-    public async Task<ActionResult<IEnumerable<HabitResponseDto>>> GetHabits()
-    {
-        var userId = GetCurrentUserId();
-        if (userId == null) return Unauthorized();
-
-        var habits = await _context.Habits
-            .Where(h => h.UserId == userId)
-            .Include(h => h.Category)
-            .Select(h => new HabitResponseDto
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<HabitResponseDto>>> GetHabits()
+        {
+            try
             {
-                Id = h.Id,
-                Name = h.Name,
-                Description = h.Description,
-                Category = new CategoryResponseDto
+                var userId = GetCurrentUserId();
+                Console.WriteLine($"GetHabits called for userId: {userId}");
+                
+                if (userId == null) 
                 {
-                    Id = h.Category.Id,
-                    Name = h.Category.Name,
-                    Color = h.Category.Color,
-                    Icon = h.Category.Icon,
-                    HabitCount = 0,
-                    CreatedAt = h.Category.CreatedAt
-                },
-                StartDate = h.StartDate,
-                EndDate = h.EndDate,
-                Frequency = h.Frequency,
-                HasReminder = h.HasReminder,
-                ReminderTime = h.ReminderTime,
-                ReminderType = h.ReminderType,
-                IsActive = h.IsActive,
-                WeeklyCompletions = _context.HabitCompletions
-                    .Count(c => c.HabitId == h.Id && 
-                               c.CompletedAt >= DateTime.UtcNow.AddDays(-7)),
-                MonthlyCompletions = _context.HabitCompletions
-                    .Count(c => c.HabitId == h.Id && 
-                               c.CompletedAt >= DateTime.UtcNow.AddDays(-30)),
-                CreatedAt = h.CreatedAt
-            })
-            .ToListAsync();
+                    Console.WriteLine("GetHabits: userId is null, returning Unauthorized");
+                    return Unauthorized();
+                }
 
-        return Ok(habits);
+            Console.WriteLine($"GetHabits: Querying habits for userId: {userId}");
+            var habits = await _context.Habits
+                .Where(h => h.UserId == userId)
+                .Include(h => h.Category)
+                .ToListAsync();
+
+            var habitDtos = new List<HabitResponseDto>();
+            foreach (var habit in habits)
+            {
+                var weeklyCompletions = await _context.HabitCompletions
+                    .CountAsync(c => c.HabitId == habit.Id && 
+                               c.CompletedAt >= DateTime.UtcNow.AddDays(-7));
+                var monthlyCompletions = await _context.HabitCompletions
+                    .CountAsync(c => c.HabitId == habit.Id && 
+                               c.CompletedAt >= DateTime.UtcNow.AddDays(-30));
+
+                // Get completion dates for this habit
+                var completionDates = await _context.HabitCompletions
+                    .Where(c => c.HabitId == habit.Id)
+                    .Select(c => c.CompletedAt)
+                    .OrderBy(d => d)
+                    .ToListAsync();
+
+                habitDtos.Add(new HabitResponseDto
+                {
+                    Id = habit.Id,
+                    Name = habit.Name,
+                    Description = habit.Description,
+                    Category = new CategoryResponseDto
+                    {
+                        Id = habit.Category.Id,
+                        Name = habit.Category.Name,
+                        Color = habit.Category.Color,
+                        Icon = habit.Category.Icon,
+                        HabitCount = 0,
+                        CreatedAt = habit.Category.CreatedAt
+                    },
+                    StartDate = habit.StartDate,
+                    EndDate = habit.EndDate,
+                    Frequency = habit.Frequency,
+                    HasReminder = habit.HasReminder,
+                    ReminderTime = habit.ReminderTime,
+                    ReminderType = habit.ReminderType,
+                    IsActive = habit.IsActive,
+                    WeeklyCompletions = weeklyCompletions,
+                    MonthlyCompletions = monthlyCompletions,
+                    CreatedAt = habit.CreatedAt,
+                    CompletionDates = completionDates
+                });
+            }
+
+            Console.WriteLine($"GetHabits: Found {habitDtos.Count} habits for userId: {userId}");
+            return Ok(habitDtos);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"GetHabits error: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return StatusCode(500, new { message = "Lỗi server: " + ex.Message });
+        }
     }
 
     /// <summary>
@@ -81,40 +114,52 @@ public class HabitController : ControllerBase
         var habit = await _context.Habits
             .Where(h => h.Id == id && h.UserId == userId)
             .Include(h => h.Category)
-            .Select(h => new HabitResponseDto
-            {
-                Id = h.Id,
-                Name = h.Name,
-                Description = h.Description,
-                Category = new CategoryResponseDto
-                {
-                    Id = h.Category.Id,
-                    Name = h.Category.Name,
-                    Color = h.Category.Color,
-                    Icon = h.Category.Icon,
-                    HabitCount = 0,
-                    CreatedAt = h.Category.CreatedAt
-                },
-                StartDate = h.StartDate,
-                EndDate = h.EndDate,
-                Frequency = h.Frequency,
-                HasReminder = h.HasReminder,
-                ReminderTime = h.ReminderTime,
-                ReminderType = h.ReminderType,
-                IsActive = h.IsActive,
-                WeeklyCompletions = _context.HabitCompletions
-                    .Count(c => c.HabitId == h.Id && 
-                               c.CompletedAt >= DateTime.UtcNow.AddDays(-7)),
-                MonthlyCompletions = _context.HabitCompletions
-                    .Count(c => c.HabitId == h.Id && 
-                               c.CompletedAt >= DateTime.UtcNow.AddDays(-30)),
-                CreatedAt = h.CreatedAt
-            })
             .FirstOrDefaultAsync();
 
         if (habit == null) return NotFound();
 
-        return Ok(habit);
+        var weeklyCompletions = await _context.HabitCompletions
+            .CountAsync(c => c.HabitId == habit.Id && 
+                       c.CompletedAt >= DateTime.UtcNow.AddDays(-7));
+        var monthlyCompletions = await _context.HabitCompletions
+            .CountAsync(c => c.HabitId == habit.Id && 
+                       c.CompletedAt >= DateTime.UtcNow.AddDays(-30));
+
+        // Get completion dates for this habit
+        var completionDates = await _context.HabitCompletions
+            .Where(c => c.HabitId == habit.Id)
+            .Select(c => c.CompletedAt)
+            .OrderBy(d => d)
+            .ToListAsync();
+
+        var response = new HabitResponseDto
+        {
+            Id = habit.Id,
+            Name = habit.Name,
+            Description = habit.Description,
+            Category = new CategoryResponseDto
+            {
+                Id = habit.Category.Id,
+                Name = habit.Category.Name,
+                Color = habit.Category.Color,
+                Icon = habit.Category.Icon,
+                HabitCount = 0,
+                CreatedAt = habit.Category.CreatedAt
+            },
+            StartDate = habit.StartDate,
+            EndDate = habit.EndDate,
+            Frequency = habit.Frequency,
+            HasReminder = habit.HasReminder,
+            ReminderTime = habit.ReminderTime,
+            ReminderType = habit.ReminderType,
+            IsActive = habit.IsActive,
+            WeeklyCompletions = weeklyCompletions,
+            MonthlyCompletions = monthlyCompletions,
+            CreatedAt = habit.CreatedAt,
+            CompletionDates = completionDates
+        };
+
+        return Ok(response);
     }
 
     /// <summary>
@@ -245,25 +290,42 @@ public class HabitController : ControllerBase
     [HttpPost("{id}/complete")]
     public async Task<IActionResult> CompleteHabit(int id, CompleteHabitDto dto)
     {
-        var userId = GetCurrentUserId();
-        if (userId == null) return Unauthorized();
-
-        var habit = await _context.Habits
-            .FirstOrDefaultAsync(h => h.Id == id && h.UserId == userId);
-
-        if (habit == null) return NotFound();
-
-        var completion = new HabitCompletion
+        try
         {
-            HabitId = id,
-            Notes = dto.Notes,
-            CompletedAt = dto.CompletedAt ?? DateTime.UtcNow
-        };
+            var userId = GetCurrentUserId();
+            if (userId == null) return Unauthorized();
 
-        _context.HabitCompletions.Add(completion);
-        await _context.SaveChangesAsync();
+            Console.WriteLine($"CompleteHabit called for habitId: {id}, userId: {userId}");
+            Console.WriteLine($"DTO CompletedAt: {dto.CompletedAt}");
+            Console.WriteLine($"DTO Notes: {dto.Notes}");
 
-        return Ok(new { message = "Đã đánh dấu hoàn thành thói quen" });
+            var habit = await _context.Habits
+                .FirstOrDefaultAsync(h => h.Id == id && h.UserId == userId);
+
+            if (habit == null) return NotFound();
+
+            var completedAt = dto.CompletedAt ?? DateTime.UtcNow;
+            Console.WriteLine($"Final CompletedAt: {completedAt}");
+
+            var completion = new HabitCompletion
+            {
+                HabitId = id,
+                Notes = dto.Notes,
+                CompletedAt = completedAt
+            };
+
+            _context.HabitCompletions.Add(completion);
+            await _context.SaveChangesAsync();
+
+            Console.WriteLine($"Successfully completed habit {id} at {completedAt}");
+            return Ok(new { message = "Đã đánh dấu hoàn thành thói quen" });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error completing habit {id}: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return StatusCode(500, new { message = "Lỗi server: " + ex.Message });
+        }
     }
 
     /// <summary>

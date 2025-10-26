@@ -257,10 +257,10 @@ public class AuthService
         // Update trạng thái thành verified
         var updatedData = new
         {
-            Email = (string)tokenData.Email,
-            Token = (string)tokenData.Token,
+            Email = tokenData.Email?.ToString() ?? "",
+            Token = tokenData.Token?.ToString() ?? "",
             IsVerified = true,
-            CreatedAt = (DateTime)tokenData.CreatedAt,
+            CreatedAt = (tokenData.CreatedAt as DateTime?) ?? DateTime.UtcNow,
             VerifiedAt = DateTime.UtcNow
         };
         
@@ -287,12 +287,12 @@ public class AuthService
             };
         }
 
-        bool isVerified = tokenData.IsVerified;
+        bool isVerified = (tokenData.IsVerified?.Equals(true)) == true;
         
         return new TokenStatusResponse
         {
             IsVerified = isVerified,
-            Token = isVerified ? (string)tokenData.Token : null,
+            Token = isVerified ? tokenData.Token?.ToString() : null,
             Message = isVerified 
                 ? "Token đã được xác nhận, bạn có thể đặt lại mật khẩu" 
                 : "Đang chờ xác nhận từ email"

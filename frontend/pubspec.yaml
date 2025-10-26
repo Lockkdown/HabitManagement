@@ -35,6 +35,8 @@ dependencies:
 
   easy_date_timeline: ^2.0.9 # <-- ĐÃ SỬA LẠI PHIÊN BẢN
   intl: ^0.20.2
+  shared_preferences: ^2.3.2
+  lucide_icons: ^0.257.0
 
 dev_dependencies:
   flutter_test:

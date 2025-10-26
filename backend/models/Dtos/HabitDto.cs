@@ -201,6 +201,11 @@ public class HabitResponseDto
     /// Ngày tạo thói quen.
     /// </summary>
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>
+    /// Danh sách ngày hoàn thành thói quen.
+    /// </summary>
+    public List<DateTime> CompletionDates { get; set; } = new List<DateTime>();
 }
 
 /// <summary>

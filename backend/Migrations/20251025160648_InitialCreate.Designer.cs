@@ -12,8 +12,8 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251022151644_AddHabitAndCategoryTables")]
-    partial class AddHabitAndCategoryTables
+    [Migration("20251025160648_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -305,6 +305,43 @@ namespace backend.Migrations
                     b.ToTable("HabitCompletions");
                 });
 
+            modelBuilder.Entity("backend.Models.HabitSchedule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DayOfMonth")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DaysOfWeek")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("FrequencyType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("FrequencyValue")
+                        .HasColumnType("int");
+
+                    b.Property<int>("HabitId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HabitId");
+
+                    b.ToTable("HabitSchedules");
+                });
+
             modelBuilder.Entity("backend.Models.User", b =>
                 {
                     b.Property<string>("Id")
@@ -477,6 +514,17 @@ namespace backend.Migrations
                     b.Navigation("Habit");
                 });
 
+            modelBuilder.Entity("backend.Models.HabitSchedule", b =>
+                {
+                    b.HasOne("backend.Models.Habit", "Habit")
+                        .WithMany("HabitSchedules")
+                        .HasForeignKey("HabitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Habit");
+                });
+
             modelBuilder.Entity("backend.Models.Category", b =>
                 {
                     b.Navigation("Habits");
@@ -485,6 +533,8 @@ namespace backend.Migrations
             modelBuilder.Entity("backend.Models.Habit", b =>
                 {
                     b.Navigation("Completions");
+
+                    b.Navigation("HabitSchedules");
                 });
 #pragma warning restore 612, 618
         }
