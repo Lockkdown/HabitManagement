@@ -66,6 +66,24 @@ public class Habit
     [MaxLength(20)]
     public string Frequency { get; set; } = "daily";
 
+
+
+    /// <summary>
+/// Các ngày trong tuần áp dụng cho tần suất "weekly".
+/// Dạng lưu trữ JSON: "[1,3,5]" (Thứ 2, Thứ 4, Thứ 6)
+/// </summary>
+    public string? DaysOfWeek { get; set; }
+
+/// <summary>
+/// Các ngày trong tháng áp dụng cho tần suất "monthly".
+/// Dạng lưu trữ JSON: "[5,10,25]" (ngày 5, 10, 25 trong tháng)
+/// </summary>
+    public string? DaysOfMonth { get; set; }
+
+
+
+
+
     /// <summary>
     /// Giá trị tùy chỉnh cho tần suất (ví dụ: mỗi 2 ngày).
     /// </summary>

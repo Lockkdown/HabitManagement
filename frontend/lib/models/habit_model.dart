@@ -1,4 +1,5 @@
 import 'category_model.dart';
+import 'habit_schedule_model.dart';
 
 class HabitModel {
   final int id;
@@ -33,6 +34,7 @@ class HabitModel {
     required this.monthlyCompletions,
     required this.createdAt,
     this.completionDates = const [], // <-- 2. THÊM VÀO CONSTRUCTOR (với mặc định)
+    final HabitSchedule? habitSchedule,
   });
 
   factory HabitModel.fromJson(Map<String, dynamic> json) {
@@ -60,6 +62,10 @@ class HabitModel {
       completionDates: (json['completionDates'] as List<dynamic>?)
           ?.map((dateString) => DateTime.parse(dateString as String))
           .toList() ?? [], // Mặc định là list rỗng nếu API không trả về
+
+      habitSchedule: json['habitSchedule'] != null
+        ? HabitSchedule.fromJson(json['habitSchedule'])
+        : null,
     );
   }
 
@@ -145,6 +151,8 @@ class CreateHabitModel {
   final String frequency;
   final int? customFrequencyValue;
   final String? customFrequencyUnit;
+  final List<int>? daysOfWeek;
+  final List<int>? daysOfMonth;
   final bool hasReminder;
   final Duration? reminderTime;
   final String? reminderType;
@@ -158,25 +166,49 @@ class CreateHabitModel {
     required this.frequency,
     this.customFrequencyValue,
     this.customFrequencyUnit,
+    this.daysOfWeek,
+    this.daysOfMonth,
     required this.hasReminder,
     this.reminderTime,
     this.reminderType,
   });
 
   Map<String, dynamic> toJson() {
-    return {
+    final Map<String, dynamic> data = {
       'name': name,
       'description': description,
       'categoryId': categoryId,
       'startDate': startDate.toIso8601String(),
       'endDate': endDate?.toIso8601String(),
       'frequency': frequency,
-      'customFrequencyValue': customFrequencyValue,
-      'customFrequencyUnit': customFrequencyUnit,
       'hasReminder': hasReminder,
-      'reminderTime': reminderTime?.toString(),
       'reminderType': reminderType,
     };
+    
+    // Chỉ thêm reminderTime nếu có
+    if (reminderTime != null) {
+      data['reminderTime'] = reminderTime.toString();
+    }
+    
+    // Chỉ thêm các trường tần suất tùy chỉnh nếu có
+    if (customFrequencyValue != null) {
+      data['customFrequencyValue'] = customFrequencyValue;
+    }
+    
+    if (customFrequencyUnit != null) {
+      data['customFrequencyUnit'] = customFrequencyUnit;
+    }
+    
+    // Thêm daysOfWeek và daysOfMonth nếu có
+    if (daysOfWeek != null && daysOfWeek!.isNotEmpty) {
+      data['daysOfWeek'] = daysOfWeek;
+    }
+    
+    if (daysOfMonth != null && daysOfMonth!.isNotEmpty) {
+      data['daysOfMonth'] = daysOfMonth;
+    }
+    
+    return data;
   }
 }
 
