@@ -17,6 +17,12 @@ class StorageService {
   static const String _languageCodeKey = 'language_code';
   static const String _biometricEnabledKey = 'biometric_enabled';
 
+  // Keys để lưu trữ cài đặt
+  static const String _notificationEnabledKey = 'notification_enabled';
+  static const String _reminderEnabledKey = 'reminder_enabled';
+  static const String _reminderTimeKey = 'reminder_time';
+  static const String _phoneNumberKey = 'phone_number';
+
   /// Lưu Access Token
   Future<void> saveAccessToken(String token) async {
     await _storage.write(key: _accessTokenKey, value: token);
@@ -81,6 +87,11 @@ class StorageService {
     return await _storage.read(key: _themePreferenceKey);
   }
 
+  /// Lưu Theme Preference
+  Future<void> saveThemePreference(String themePreference) async {
+    await _storage.write(key: _themePreferenceKey, value: themePreference);
+  }
+
   /// Lấy Language Code
   Future<String?> getLanguageCode() async {
     return await _storage.read(key: _languageCodeKey);
@@ -118,5 +129,104 @@ class StorageService {
       _storage.delete(key: _accessTokenKey),
       _storage.delete(key: _refreshTokenKey),
     ]);
+  }
+
+  /// Cập nhật Full Name
+  Future<void> updateFullName(String fullName) async {
+    await _storage.write(key: _fullNameKey, value: fullName);
+  }
+
+  /// Cập nhật Email
+  Future<void> updateEmail(String email) async {
+    await _storage.write(key: _emailKey, value: email);
+  }
+
+  /// Cập nhật Username
+  Future<void> updateUsername(String username) async {
+    await _storage.write(key: _usernameKey, value: username);
+  }
+
+  /// Lưu số điện thoại
+  Future<void> savePhoneNumber(String phoneNumber) async {
+    await _storage.write(key: _phoneNumberKey, value: phoneNumber);
+  }
+
+  /// Lấy số điện thoại
+  Future<String?> getPhoneNumber() async {
+    return await _storage.read(key: _phoneNumberKey);
+  }
+
+  /// Lưu trạng thái thông báo
+  Future<void> setNotificationEnabled(bool enabled) async {
+    await _storage.write(
+      key: _notificationEnabledKey,
+      value: enabled.toString(),
+    );
+  }
+
+  /// Kiểm tra trạng thái thông báo
+  Future<bool> isNotificationEnabled() async {
+    final value = await _storage.read(key: _notificationEnabledKey);
+    return value != 'false'; // Mặc định là true nếu chưa set
+  }
+
+  /// Lưu trạng thái nhắc nhở
+  Future<void> setReminderEnabled(bool enabled) async {
+    await _storage.write(
+      key: _reminderEnabledKey,
+      value: enabled.toString(),
+    );
+  }
+
+  /// Kiểm tra trạng thái nhắc nhở
+  Future<bool> isReminderEnabled() async {
+    final value = await _storage.read(key: _reminderEnabledKey);
+    return value != 'false'; // Mặc định là true nếu chưa set
+  }
+
+  /// Lưu thời gian nhắc nhở
+  Future<void> saveReminderTime(String time) async {
+    await _storage.write(key: _reminderTimeKey, value: time);
+  }
+
+  /// Lấy thời gian nhắc nhở
+  Future<String> getReminderTime() async {
+    final time = await _storage.read(key: _reminderTimeKey);
+    return time ?? '08:00'; // Mặc định là 8:00 AM
+  }
+
+  /// Keys for habit settings
+  static const String _defaultHabitGoalKey = 'default_habit_goal';
+  static const String _weekStartDayKey = 'week_start_day';
+  static const String _habitColorKey = 'habit_color';
+  
+  // Default habit goal methods
+  Future<void> saveDefaultHabitGoal(int goal) async {
+    await _storage.write(key: _defaultHabitGoalKey, value: goal.toString());
+  }
+
+  Future<int> getDefaultHabitGoal() async {
+    final goal = await _storage.read(key: _defaultHabitGoalKey);
+    return goal != null ? int.tryParse(goal) ?? 7 : 7; // Default 7 days
+  }
+
+  // Week start day methods
+  Future<void> saveWeekStartDay(int day) async {
+    await _storage.write(key: _weekStartDayKey, value: day.toString());
+  }
+
+  Future<int> getWeekStartDay() async {
+    final day = await _storage.read(key: _weekStartDayKey);
+    return day != null ? int.tryParse(day) ?? 1 : 1; // Default Monday (1)
+  }
+
+  // Habit color methods
+  Future<void> saveHabitColor(int colorValue) async {
+    await _storage.write(key: _habitColorKey, value: colorValue.toString());
+  }
+
+  Future<int> getHabitColor() async {
+    final color = await _storage.read(key: _habitColorKey);
+    return color != null ? int.tryParse(color) ?? 0xFF6366F1 : 0xFF6366F1; // Default indigo color
   }
 }

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:provider/provider.dart' as provider;
 import 'themes/app_theme.dart';
+import 'themes/theme_provider.dart';
 import 'services/auth_provider.dart';
 import 'services/auth_state.dart';
 import 'screens/splash_screen.dart';
@@ -21,10 +23,15 @@ void main() async {
     debugPrint('Warning: Không thể load file .env: $e');
   }
 
-  // Chạy app với ProviderScope (Riverpod)
+  // Chạy app với ProviderScope (Riverpod) và ChangeNotifierProvider (Provider)
   runApp(
-    const ProviderScope(
-      child: MyApp(),
+    provider.MultiProvider(
+      providers: [
+        provider.ChangeNotifierProvider(create: (_) => ThemeProvider()),
+      ],
+      child: const ProviderScope(
+        child: MyApp(),
+      ),
     ),
   );
 }
@@ -35,29 +42,39 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Habit Management',
-      debugShowCheckedModeBanner: false,
-      
-      // Localization support (để DatePicker và các widget khác hỗ trợ tiếng Việt)
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('vi', 'VN'), // Tiếng Việt
-        Locale('en', 'US'), // Tiếng Anh
-      ],
-      locale: const Locale('vi', 'VN'), // Mặc định tiếng Việt
-      
-      // Theme
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.dark, // Mặc định Dark mode
-      
-      // Màn hình khởi động
-      home: const AppInitializer(),
+    return provider.Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return MaterialApp(
+          title: 'Habit Management',
+          debugShowCheckedModeBanner: false,
+          
+          // Localization support (để DatePicker và các widget khác hỗ trợ tiếng Việt)
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('vi', 'VN'), // Tiếng Việt
+            Locale('en', 'US'), // Tiếng Anh
+          ],
+          locale: const Locale('vi', 'VN'), // Mặc định tiếng Việt
+          
+          // Theme
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeProvider.themeMode,
+          
+          // Routes
+          routes: {
+            '/login': (context) => const LoginScreen(),
+            '/home': (context) => const HomeScreen(),
+          },
+          
+          // Màn hình khởi động
+          home: const AppInitializer(),
+        );
+      },
     );
   }
 }

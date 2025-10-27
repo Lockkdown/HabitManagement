@@ -35,6 +35,8 @@ import '../api/habit_schedule_api_service.dart';
 
 import '../services/storage_service.dart';
 
+import 'settings_screen.dart';
+
 // import 'edit_habit_screen.dart'; // (TODO)
 
 
@@ -369,6 +371,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(LucideIcons.settings),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SettingsScreen()),
+            );
+          },
+        ),
         title: const Text('Habit Management'),
         backgroundColor: Colors.transparent, elevation: 0,
         actions: [

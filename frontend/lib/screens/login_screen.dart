@@ -71,6 +71,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       
       // Chờ 500ms để user thấy notification trước khi navigate
       await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Chuyển hướng rõ ràng đến HomeScreen và clear navigation stack
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/home',
+          (route) => false,
+        );
+      }
     } else {
       // Hiển thị thông báo lỗi
       final errorMessage = ref.read(authProvider).errorMessage ?? 

@@ -148,8 +148,19 @@ class AuthNotifier extends Notifier<AuthState> {
 
   /// Đăng xuất người dùng
   Future<void> logout() async {
-    await _storageService.clearAll();
-    state = AuthState.unauthenticated();
+    try {
+      // Xóa tất cả dữ liệu local
+      await _storageService.clearAll();
+      
+      // Cập nhật state về unauthenticated
+      state = AuthState.unauthenticated();
+      
+      print('AuthProvider: User logged out successfully');
+    } catch (e) {
+      print('AuthProvider: Error during logout: $e');
+      // Vẫn set state về unauthenticated ngay cả khi có lỗi
+      state = AuthState.unauthenticated();
+    }
   }
 
   /// Yêu cầu reset mật khẩu
