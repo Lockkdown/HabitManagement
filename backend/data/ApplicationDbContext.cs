@@ -34,8 +34,15 @@ public class ApplicationDbContext : IdentityDbContext<User>
     /// </summary>
     public DbSet<HabitCompletion> HabitCompletions { get; set; } 
 
-
+    /// <summary>
+    /// DbSet cho lịch trình thói quen.
+    /// </summary>
     public DbSet<HabitSchedule> HabitSchedules { get; set; }
+
+    /// <summary>
+    /// DbSet cho ghi chú nhật ký thói quen.
+    /// </summary>
+    public DbSet<HabitNote> HabitNotes { get; set; }
 
 
 
@@ -103,6 +110,27 @@ public class ApplicationDbContext : IdentityDbContext<User>
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
+            // Cấu hình HabitNote
+            builder.Entity<HabitNote>(entity =>
+            {
+                  entity.HasKey(e => e.Id);
+                  entity.Property(e => e.Content).IsRequired().HasMaxLength(1000);
+                  entity.Property(e => e.Date).IsRequired().HasColumnType("date");
+                  entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+                  entity.Property(e => e.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+
+                  // Relationship với Habit
+                  entity.HasOne(e => e.Habit)
+                    .WithMany()
+                    .HasForeignKey(e => e.HabitId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                  // Unique constraint: một thói quen chỉ có một ghi chú mỗi ngày
+                  entity.HasIndex(e => new { e.HabitId, e.Date })
+                    .IsUnique()
+                    .HasDatabaseName("IX_HabitNotes_HabitId_Date");
+            });
+
             // Tạo indexes để tối ưu performance
             builder.Entity<Category>()
                   .HasIndex(e => e.UserId);
@@ -118,5 +146,11 @@ public class ApplicationDbContext : IdentityDbContext<User>
 
             builder.Entity<HabitCompletion>()
                   .HasIndex(e => e.CompletedAt);
+
+            builder.Entity<HabitNote>()
+                  .HasIndex(e => e.HabitId);
+
+            builder.Entity<HabitNote>()
+                  .HasIndex(e => e.Date);
       }
 }

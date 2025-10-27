@@ -12,8 +12,8 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251027152134_AddNotificationTableOnly")]
-    partial class AddNotificationTableOnly
+    [Migration("20251027175606_AddHabitNotesTable")]
+    partial class AddHabitNotesTable
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -311,6 +311,58 @@ namespace backend.Migrations
                     b.ToTable("HabitCompletions");
                 });
 
+            modelBuilder.Entity("backend.Models.HabitNote", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("note_id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)")
+                        .HasColumnName("content");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("date")
+                        .HasColumnName("date");
+
+                    b.Property<int>("HabitId")
+                        .HasColumnType("int")
+                        .HasColumnName("habit_id");
+
+                    b.Property<int?>("Mood")
+                        .HasColumnType("int")
+                        .HasColumnName("mood");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Date");
+
+                    b.HasIndex("HabitId");
+
+                    b.HasIndex("HabitId", "Date")
+                        .IsUnique()
+                        .HasDatabaseName("IX_HabitNotes_HabitId_Date");
+
+                    b.ToTable("HabitNotes");
+                });
+
             modelBuilder.Entity("backend.Models.HabitSchedule", b =>
                 {
                     b.Property<int>("Id")
@@ -346,65 +398,6 @@ namespace backend.Migrations
                     b.HasIndex("HabitId");
 
                     b.ToTable("HabitSchedules");
-                });
-
-            modelBuilder.Entity("backend.Models.Notification", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<int?>("HabitId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Icon")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<bool>("IsRead")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("ReadAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedAt");
-
-                    b.HasIndex("HabitId");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("UserId", "Type");
-
-                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("backend.Models.User", b =>
@@ -589,6 +582,17 @@ namespace backend.Migrations
                     b.Navigation("Habit");
                 });
 
+            modelBuilder.Entity("backend.Models.HabitNote", b =>
+                {
+                    b.HasOne("backend.Models.Habit", "Habit")
+                        .WithMany()
+                        .HasForeignKey("HabitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Habit");
+                });
+
             modelBuilder.Entity("backend.Models.HabitSchedule", b =>
                 {
                     b.HasOne("backend.Models.Habit", "Habit")
@@ -598,24 +602,6 @@ namespace backend.Migrations
                         .IsRequired();
 
                     b.Navigation("Habit");
-                });
-
-            modelBuilder.Entity("backend.Models.Notification", b =>
-                {
-                    b.HasOne("backend.Models.Habit", "Habit")
-                        .WithMany()
-                        .HasForeignKey("HabitId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("backend.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Habit");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("backend.Models.Category", b =>

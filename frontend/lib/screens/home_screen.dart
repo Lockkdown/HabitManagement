@@ -12,6 +12,8 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 
 import 'package:easy_date_timeline/easy_date_timeline.dart';
 
+import 'habit_journal_screen.dart';
+
 // ignore: depend_on_referenced_packages
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -766,67 +768,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
 
   void _showHabitOptions(BuildContext context, HabitModel habit) {
-
     showModalBottomSheet(
-
       context: context, backgroundColor: Colors.grey[900],
-
       builder: (ctx) => Wrap(children: [
-
         ListTile(
-
-          leading: const Icon(LucideIcons.pencil, color: Colors.white70),
-
-          title: const Text('Chỉnh sửa', style: TextStyle(color: Colors.white)),
-
-          onTap: () async {
-
-              Navigator.pop(ctx); // Đóng bottom sheet
-
-              final result = await Navigator.push(
-
-                context,
-
-               MaterialPageRoute(
-
-       // Bỏ dòng cũ: builder: (context) => const CreateHabitScreen(),
-
-                builder: (context) => EditHabitScreen(habit: habit), // <-- SỬA LẠI DÒNG NÀY
-
-    ),
-
-  );
-
-  if (result == true) {
-
-    _loadHabits(); // Tải lại nếu có chỉnh sửa
-
-  }
-
-},
-
-        ),
-
-        ListTile(
-
-          leading: const Icon(LucideIcons.trash2, color: Colors.redAccent),
-
-          title: const Text('Xóa', style: TextStyle(color: Colors.redAccent)),
-
+          leading: const Icon(LucideIcons.bookOpen, color: Colors.white70),
+          title: const Text('Nhật ký thói quen', style: TextStyle(color: Colors.white)),
           onTap: () {
-
-            Navigator.pop(ctx);
-
-            _showDeleteConfirmDialog(context, habit);
-
+            Navigator.pop(ctx); // Đóng bottom sheet
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => HabitJournalScreen(habit: habit),
+              ),
+            );
           },
-
         ),
-
+        ListTile(
+          leading: const Icon(LucideIcons.pencil, color: Colors.white70),
+          title: const Text('Chỉnh sửa', style: TextStyle(color: Colors.white)),
+          onTap: () async {
+              Navigator.pop(ctx); // Đóng bottom sheet
+              final result = await Navigator.push(
+                context,
+               MaterialPageRoute(
+       // Bỏ dòng cũ: builder: (context) => const CreateHabitScreen(),
+                builder: (context) => EditHabitScreen(habit: habit), // <-- SỬA LẠI DÒNG NÀY
+    ),
+  );
+  if (result == true) {
+    _loadHabits(); // Tải lại nếu có chỉnh sửa
+  }
+},
+        ),
+        ListTile(
+          leading: const Icon(LucideIcons.trash2, color: Colors.redAccent),
+          title: const Text('Xóa', style: TextStyle(color: Colors.redAccent)),
+          onTap: () {
+            Navigator.pop(ctx);
+            _showDeleteConfirmDialog(context, habit);
+          },
+        ),
       ]),
-
     );
-
   }
 
 
