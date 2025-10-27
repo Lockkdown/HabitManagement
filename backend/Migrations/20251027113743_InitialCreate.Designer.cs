@@ -12,8 +12,8 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251026100535_AddDaysOfWeekAndDaysOfMonthToHabit")]
-    partial class AddDaysOfWeekAndDaysOfMonthToHabit
+    [Migration("20251027113743_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

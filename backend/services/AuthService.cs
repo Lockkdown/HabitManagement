@@ -116,7 +116,7 @@ public class AuthService
 
         // Tạo Access Token và Refresh Token
         var accessToken = await GenerateAccessTokenAsync(user);
-        var refreshToken = GenerateRefreshToken();
+        var refreshToken = await GenerateRefreshTokenAsync(user);
 
         // Lưu Refresh Token vào database (sẽ implement sau)
         // await SaveRefreshTokenAsync(user.Id, refreshToken);
@@ -184,16 +184,47 @@ public class AuthService
     }
 
     /// <summary>
-    /// Tạo Refresh Token ngẫu nhiên.
+    /// Tạo Refresh Token (JWT với expiration dài hơn).
     /// </summary>
-    /// <returns>Refresh token dạng string</returns>
-    private string GenerateRefreshToken()
+    /// <param name="user">Người dùng cần tạo refresh token</param>
+    /// <returns>Refresh token dạng JWT string</returns>
+    private async Task<string> GenerateRefreshTokenAsync(User user)
     {
-        // Tạo một chuỗi ngẫu nhiên 64 ký tự làm refresh token
-        var randomBytes = new byte[64];
-        using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
-        rng.GetBytes(randomBytes);
-        return Convert.ToBase64String(randomBytes);
+        // Lấy roles của user
+        var roles = await _userManager.GetRolesAsync(user);
+
+        // Tạo các claims cho refresh token (tối giản, chỉ cần userId)
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id),
+            new(ClaimTypes.Name, user.UserName!),
+            new(ClaimTypes.Email, user.Email!),
+        };
+
+        // Thêm roles vào claims
+        claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
+
+        // Lấy secret key từ environment variables
+        var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")!;
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        // Lấy thông tin issuer, audience từ environment variables
+        var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER");
+        var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE");
+        // Refresh token có expiration dài hơn (7 ngày)
+        var expirationDays = int.Parse(Environment.GetEnvironmentVariable("JWT_REFRESH_TOKEN_EXPIRATION_DAYS") ?? "7");
+
+        // Tạo JWT refresh token
+        var token = new JwtSecurityToken(
+            issuer: issuer,
+            audience: audience,
+            claims: claims,
+            expires: DateTime.UtcNow.AddDays(expirationDays),
+            signingCredentials: credentials
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
     /// <summary>
@@ -322,5 +353,81 @@ public class AuthService
         }
 
         return (true, Array.Empty<string>());
+    }
+
+    /// <summary>
+    /// Refresh access token bằng refresh token.
+    /// Được gọi khi sinh trắc học thành công.
+    /// </summary>
+    /// <param name="refreshToken">Refresh token đã lưu</param>
+    /// <returns>AuthResponseDto với access token mới</returns>
+    public async Task<AuthResponseDto> RefreshTokenAsync(string refreshToken)
+    {
+        if (string.IsNullOrEmpty(refreshToken))
+        {
+            throw new Exception("Refresh token không hợp lệ");
+        }
+
+        try
+        {
+            // Giải mã refresh token để lấy userId
+            // Refresh token cũng là JWT nhưng có expiration dài hơn
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")!;
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+
+            var validationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = key,
+                ValidateIssuer = true,
+                ValidIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER"),
+                ValidateAudience = true,
+                ValidAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE"),
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero
+            };
+
+            var principal = tokenHandler.ValidateToken(refreshToken, validationParameters, out SecurityToken validatedToken);
+            
+            // Lấy userId từ claims
+            var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                throw new Exception("Không thể xác định user từ token");
+            }
+
+            // Lấy thông tin user từ database
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                throw new Exception("User không tồn tại");
+            }
+
+            // Tạo access token mới
+            var newAccessToken = await GenerateAccessTokenAsync(user);
+            // Giữ nguyên refresh token cũ (hoặc tạo mới nếu muốn rotation)
+            var newRefreshToken = refreshToken;
+
+            var expirationMinutes = int.Parse(Environment.GetEnvironmentVariable("JWT_ACCESS_TOKEN_EXPIRATION_MINUTES") ?? "30");
+            var expiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes);
+
+            return new AuthResponseDto
+            {
+                UserId = user.Id,
+                Username = user.UserName!,
+                Email = user.Email!,
+                FullName = user.FullName,
+                ThemePreference = user.ThemePreference,
+                LanguageCode = user.LanguageCode,
+                AccessToken = newAccessToken,
+                RefreshToken = newRefreshToken,
+                ExpiresAt = expiresAt
+            };
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Refresh token không hợp lệ: {ex.Message}");
+        }
     }
 }

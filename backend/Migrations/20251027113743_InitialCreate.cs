@@ -197,6 +197,8 @@ namespace backend.Migrations
                     StartDate = table.Column<DateTime>(type: "datetime2", nullable: false),
                     EndDate = table.Column<DateTime>(type: "datetime2", nullable: true),
                     Frequency = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    DaysOfWeek = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    DaysOfMonth = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     CustomFrequencyValue = table.Column<int>(type: "int", nullable: true),
                     CustomFrequencyUnit = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
                     HasReminder = table.Column<bool>(type: "bit", nullable: false),

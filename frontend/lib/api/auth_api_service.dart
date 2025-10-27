@@ -195,6 +195,32 @@ class AuthApiService {
     }
   }
 
+  /// Refresh access token bằng refresh token
+  ///
+  /// Được gọi khi sinh trắc học thành công
+  /// Trả về [AuthResponseModel] với access token mới
+  Future<AuthResponseModel> refreshToken(String refreshToken) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/api/auth/refresh'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'refreshToken': refreshToken,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return AuthResponseModel.fromJson(data);
+      } else {
+        throw Exception(data['message'] ?? 'Refresh token thất bại');
+      }
+    } catch (e) {
+      throw Exception('Lỗi kết nối: $e');
+    }
+  }
+
   /// Kiểm tra trạng thái API server
   ///
   /// Trả về message từ server nếu hoạt động tốt

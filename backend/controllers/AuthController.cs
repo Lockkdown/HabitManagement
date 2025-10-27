@@ -242,6 +242,39 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
+    /// Refresh access token bằng refresh token.
+    /// Được gọi khi sinh trắc học thành công.
+    /// </summary>
+    /// <param name="refreshTokenRequest">Refresh token</param>
+    /// <returns>
+    /// 200 OK với access token mới + user info.
+    /// 400 BadRequest nếu refresh token không hợp lệ.
+    /// </returns>
+    [HttpPost("refresh")]
+    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest refreshTokenRequest)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(refreshTokenRequest.RefreshToken))
+            {
+                return BadRequest(new { message = "Refresh token không được để trống" });
+            }
+
+            _logger.LogInformation("Refresh token request received");
+
+            // Gọi service để xử lý refresh token
+            var authResponse = await _authService.RefreshTokenAsync(refreshTokenRequest.RefreshToken);
+            
+            return Ok(authResponse);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi khi refresh token");
+            return StatusCode(500, new { message = "Có lỗi xảy ra khi refresh token" });
+        }
+    }
+
+    /// <summary>
     /// Kiểm tra trạng thái server.
     /// Endpoint này không yêu cầu xác thực.
     /// </summary>
