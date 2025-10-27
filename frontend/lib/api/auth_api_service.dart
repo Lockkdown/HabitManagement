@@ -26,7 +26,10 @@ class AuthApiService {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/api/auth/register'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
         body: jsonEncode({
           'username': username,
           'fullName': fullName,
@@ -63,7 +66,10 @@ class AuthApiService {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/api/auth/login'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
         body: jsonEncode({
           'email': email,
           'password': password,
@@ -91,7 +97,10 @@ class AuthApiService {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/api/auth/forgot-password'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
         body: jsonEncode({'email': email}),
       );
 
@@ -127,6 +136,9 @@ class AuthApiService {
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/api/auth/check-token-status?tokenId=$tokenId'),
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+        },
       );
 
       final data = jsonDecode(response.body);
@@ -159,7 +171,10 @@ class AuthApiService {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/api/auth/reset-password'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
         body: jsonEncode({
           'email': email,
           'token': token,
@@ -187,6 +202,9 @@ class AuthApiService {
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl/api/auth/ping'),
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+        },
       );
 
       final data = jsonDecode(response.body);

@@ -37,6 +37,8 @@ import '../services/storage_service.dart';
 
 import 'settings_screen.dart';
 
+import 'statistics_screen.dart';
+
 // import 'edit_habit_screen.dart'; // (TODO)
 
 
@@ -900,9 +902,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
 
   Widget _buildStatisticsScreen() {
-
-    return const Center(child: Text('Thống kê', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)));
-
+    return const StatisticsScreen();
   }
 
 

@@ -17,6 +17,7 @@ class HabitModel {
   final int monthlyCompletions;
   final DateTime createdAt;
   final List<DateTime> completionDates; // <-- 1. ĐÃ THÊM BIẾN MỚI
+  final HabitSchedule? habitSchedule; // <-- THÊM FIELD CHO HABIT SCHEDULE
 
   HabitModel({
     required this.id,
@@ -34,7 +35,7 @@ class HabitModel {
     required this.monthlyCompletions,
     required this.createdAt,
     this.completionDates = const [], // <-- 2. THÊM VÀO CONSTRUCTOR (với mặc định)
-    final HabitSchedule? habitSchedule,
+    this.habitSchedule, // <-- SỬA PARAMETER
   });
 
   factory HabitModel.fromJson(Map<String, dynamic> json) {
@@ -117,6 +118,7 @@ class HabitModel {
     int? monthlyCompletions,
     DateTime? createdAt,
     List<DateTime>? completionDates, // <-- 5. THÊM VÀO COPYWITH
+    HabitSchedule? habitSchedule, // <-- THÊM HABIT SCHEDULE VÀO COPYWITH
   }) {
     return HabitModel(
       id: id ?? this.id,
@@ -134,6 +136,7 @@ class HabitModel {
       monthlyCompletions: monthlyCompletions ?? this.monthlyCompletions,
       createdAt: createdAt ?? this.createdAt,
       completionDates: completionDates ?? this.completionDates, // <-- 5.
+      habitSchedule: habitSchedule ?? this.habitSchedule, // <-- THÊM VÀO RETURN
     );
   }
 }

@@ -33,6 +33,7 @@ dependencies:
   lucide_flutter: ^0.546.0
   flutter_spinkit: ^5.2.2
   elegant_notification: ^2.5.1
+  fl_chart: ^0.69.0
 
   easy_date_timeline: ^2.0.9 # <-- ĐÃ SỬA LẠI PHIÊN BẢN
   intl: ^0.20.2
@@ -43,6 +44,7 @@ dependencies:
   file_picker: ^8.1.4
   share_plus: ^10.1.2
   path_provider: ^2.1.5
+  flutter_heatmap_calendar: ^1.0.5
 
 dev_dependencies:
   flutter_test:
