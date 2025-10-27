@@ -320,5 +320,5 @@ yarn-error.log*
 .windsurf
 
 # Local build/auth docs not to commit
-build_auth.md
-db_auth.md
+
+truong_hoang_phuc_habit.sln

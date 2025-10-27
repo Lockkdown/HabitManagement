@@ -3,6 +3,7 @@ import '../api/auth_api_service.dart';
 import '../models/user_model.dart';
 import 'auth_state.dart';
 import 'storage_service.dart';
+import 'biometric_service.dart';
 
 /// Provider cho AuthApiService
 final authApiServiceProvider = Provider<AuthApiService>((ref) {
@@ -163,6 +164,97 @@ class AuthNotifier extends Notifier<AuthState> {
     } catch (e) {
       print('AuthProvider: Error in forgotPassword: $e');
       return null;
+    }
+  }
+
+  /// Đăng nhập bằng sinh trắc học
+  /// Được gọi từ Splash Screen khi có refresh token + biometric enabled
+  Future<bool> biometricLogin() async {
+    try {
+      print('AuthProvider: Bắt đầu đăng nhập sinh trắc học');
+      
+      // Bước 1: Kiểm tra có refresh token không
+      final refreshToken = await _storageService.getRefreshToken();
+      if (refreshToken == null) {
+        print('AuthProvider: Không có refresh token');
+        return false;
+      }
+
+      // Bước 2: Xác thực sinh trắc học
+      // Import BiometricService
+      final biometricService = BiometricService();
+      final isAuthenticated = await biometricService.authenticate();
+      
+      if (!isAuthenticated) {
+        print('AuthProvider: Xác thực sinh trắc học thất bại');
+        state = AuthState.unauthenticated(
+          errorMessage: 'Xác thực sinh trắc học thất bại',
+        );
+        return false;
+      }
+
+      // Bước 3: Gọi API refresh token
+      print('AuthProvider: Gọi API refresh token');
+      final authResponse = await _authApiService.refreshToken(refreshToken);
+
+      // Bước 4: Lưu access token mới
+      await _storageService.saveAccessToken(authResponse.accessToken);
+      
+      // Cập nhật refresh token nếu có token mới từ server
+      if (authResponse.refreshToken.isNotEmpty) {
+        await _storageService.saveRefreshToken(authResponse.refreshToken);
+      }
+
+      // Bước 5: Cập nhật state
+      state = AuthState.authenticated(authResponse.user);
+      print('AuthProvider: Đăng nhập sinh trắc học thành công');
+      return true;
+    } catch (e) {
+      print('AuthProvider: Lỗi đăng nhập sinh trắc học: $e');
+      state = AuthState.unauthenticated(
+        errorMessage: 'Lỗi: ${e.toString()}',
+      );
+      return false;
+    }
+  }
+
+  /// Bật sinh trắc học (sau khi đăng nhập thành công)
+  /// Kiểm tra thiết bị có hỗ trợ không trước khi bật
+  Future<bool> enableBiometric() async {
+    try {
+      final biometricService = BiometricService();
+      
+      // Kiểm tra thiết bị có hỗ trợ không
+      final canUseBiometric = await biometricService.canUseBiometric();
+      if (!canUseBiometric) {
+        print('AuthProvider: Thiết bị không hỗ trợ sinh trắc học');
+        return false;
+      }
+
+      // Kiểm tra có sinh trắc học nào được đăng ký không
+      final hasBiometric = await biometricService.hasBiometricEnrolled();
+      if (!hasBiometric) {
+        print('AuthProvider: Chưa đăng ký sinh trắc học trong cài đặt');
+        return false;
+      }
+
+      // Lưu trạng thái
+      await _storageService.setBiometricEnabled(true);
+      print('AuthProvider: Đã bật sinh trắc học');
+      return true;
+    } catch (e) {
+      print('AuthProvider: Lỗi bật sinh trắc học: $e');
+      return false;
+    }
+  }
+
+  /// Tắt sinh trắc học
+  Future<void> disableBiometric() async {
+    try {
+      await _storageService.setBiometricEnabled(false);
+      print('AuthProvider: Đã tắt sinh trắc học');
+    } catch (e) {
+      print('AuthProvider: Lỗi tắt sinh trắc học: $e');
     }
   }
 
