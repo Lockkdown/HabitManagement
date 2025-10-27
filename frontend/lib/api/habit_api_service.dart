@@ -202,12 +202,29 @@ class HabitApiService {
     try {
       final headers = await _getHeaders();
       debugPrint('Creating habit with headers: $headers'); // Log headers
-      debugPrint('Creating habit with body: ${json.encode(habit.toJson())}'); // Log body again
+      
+      // Tạo bản sao của dữ liệu để chỉnh sửa
+      final jsonData = habit.toJson();
+      
+      // Chuyển đổi daysOfWeek và daysOfMonth thành chuỗi JSON
+      if (habit.frequency == 'weekly' && habit.daysOfWeek != null) {
+        jsonData['daysOfWeek'] = json.encode(habit.daysOfWeek);
+        debugPrint('DaysOfWeek (converted): ${jsonData['daysOfWeek']}');
+      } else if (habit.frequency == 'monthly' && habit.daysOfMonth != null) {
+        jsonData['daysOfMonth'] = json.encode(habit.daysOfMonth);
+        debugPrint('DaysOfMonth (converted): ${jsonData['daysOfMonth']}');
+      }
+      
+      debugPrint('Creating habit with data: $jsonData');
+      debugPrint('JSON body: ${json.encode(jsonData)}');
+      
+      // Kiểm tra các trường quan trọng
+      debugPrint('Frequency: ${habit.frequency}');
 
       final response = await http.post(
         Uri.parse('$_baseUrl/api/habit'),
         headers: headers,
-        body: json.encode(habit.toJson()),
+        body: json.encode(jsonData),
       );
 
       if (response.statusCode == 201) { // 201 Created

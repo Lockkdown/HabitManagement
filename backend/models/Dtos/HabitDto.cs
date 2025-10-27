@@ -5,59 +5,34 @@ namespace backend.Models.Dtos;
 /// </summary>
 public class CreateHabitDto
 {
-    /// <summary>
-    /// Tên thói quen.
-    /// </summary>
+
     public string Name { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Mô tả thói quen.
-    /// </summary>
     public string? Description { get; set; }
-
-    /// <summary>
-    /// ID của danh mục thói quen.
-    /// </summary>
     public int CategoryId { get; set; }
-
-    /// <summary>
-    /// Ngày bắt đầu thói quen.
-    /// </summary>
     public DateTime StartDate { get; set; }
-
-    /// <summary>
-    /// Ngày kết thúc thói quen (có thể null).
-    /// </summary>
     public DateTime? EndDate { get; set; }
-
-    /// <summary>
-    /// Tần suất thực hiện thói quen.
-    /// </summary>
     public string Frequency { get; set; } = "daily";
-
-    /// <summary>
-    /// Giá trị tùy chỉnh cho tần suất.
-    /// </summary>
     public int? CustomFrequencyValue { get; set; }
-
-    /// <summary>
-    /// Đơn vị tùy chỉnh cho tần suất.
-    /// </summary>
     public string? CustomFrequencyUnit { get; set; }
+    
+    
 
     /// <summary>
-    /// Có nhắc nhở hay không.
+    /// Các ngày trong tuần áp dụng cho tần suất "weekly".
+    /// Dạng lưu trữ JSON: "[1,3,5]" (Thứ 2, Thứ 4, Thứ 6)
     /// </summary>
+    public string? DaysOfWeek { get; set; }
+
+    /// <summary>
+    /// Các ngày trong tháng áp dụng cho tần suất "monthly".
+    /// Dạng lưu trữ JSON: "[5,10,25]" (ngày 5, 10, 25 trong tháng)
+    /// </summary>
+    public string? DaysOfMonth { get; set; }
+
+
+    
     public bool HasReminder { get; set; } = false;
-
-    /// <summary>
-    /// Thời gian nhắc nhở (chỉ giờ:phút).
-    /// </summary>
     public TimeSpan? ReminderTime { get; set; }
-
-    /// <summary>
-    /// Loại nhắc nhở.
-    /// </summary>
     public string? ReminderType { get; set; }
 }
 
@@ -66,64 +41,36 @@ public class CreateHabitDto
 /// </summary>
 public class UpdateHabitDto
 {
-    /// <summary>
-    /// Tên thói quen.
-    /// </summary>
+
     public string? Name { get; set; }
-
-    /// <summary>
-    /// Mô tả thói quen.
-    /// </summary>
     public string? Description { get; set; }
-
-    /// <summary>
-    /// ID của danh mục thói quen.
-    /// </summary>
     public int? CategoryId { get; set; }
-
-    /// <summary>
-    /// Ngày bắt đầu thói quen.
-    /// </summary>
     public DateTime? StartDate { get; set; }
-
-    /// <summary>
-    /// Ngày kết thúc thói quen.
-    /// </summary>
     public DateTime? EndDate { get; set; }
-
-    /// <summary>
-    /// Tần suất thực hiện thói quen.
-    /// </summary>
     public string? Frequency { get; set; }
-
-    /// <summary>
-    /// Giá trị tùy chỉnh cho tần suất.
-    /// </summary>
     public int? CustomFrequencyValue { get; set; }
-
-    /// <summary>
-    /// Đơn vị tùy chỉnh cho tần suất.
-    /// </summary>
     public string? CustomFrequencyUnit { get; set; }
 
+
+
     /// <summary>
-    /// Có nhắc nhở hay không.
+    /// Các ngày trong tuần áp dụng cho tần suất "weekly".
+    /// Dạng lưu trữ JSON: "[1,3,5]" (Thứ 2, Thứ 4, Thứ 6)
     /// </summary>
+    public string? DaysOfWeek { get; set; }
+
+    /// <summary>
+    /// Các ngày trong tháng áp dụng cho tần suất "monthly".
+    /// Dạng lưu trữ JSON: "[5,10,25]" (ngày 5, 10, 25 trong tháng)
+    /// </summary>
+    public string? DaysOfMonth { get; set; }
+
+
+
+
     public bool? HasReminder { get; set; }
-
-    /// <summary>
-    /// Thời gian nhắc nhở.
-    /// </summary>
     public TimeSpan? ReminderTime { get; set; }
-
-    /// <summary>
-    /// Loại nhắc nhở.
-    /// </summary>
     public string? ReminderType { get; set; }
-
-    /// <summary>
-    /// Trạng thái hoạt động.
-    /// </summary>
     public bool? IsActive { get; set; }
 }
 
@@ -167,6 +114,7 @@ public class HabitResponseDto
     /// </summary>
     public string Frequency { get; set; } = string.Empty;
 
+
     /// <summary>
     /// Có nhắc nhở hay không.
     /// </summary>
@@ -208,19 +156,14 @@ public class HabitResponseDto
     public List<DateTime> CompletionDates { get; set; } = new List<DateTime>();
 }
 
+
+
 /// <summary>
 /// DTO cho việc đánh dấu hoàn thành thói quen.
 /// </summary>
 public class CompleteHabitDto
 {
-    /// <summary>
-    /// Ghi chú cho lần hoàn thành.
-    /// </summary>
     public string? Notes { get; set; }
-
-    /// <summary>
-    /// Ngày hoàn thành (mặc định là hôm nay).
-    /// </summary>
     public DateTime? CompletedAt { get; set; }
 }
 

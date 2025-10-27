@@ -28,6 +28,10 @@ class _CreateHabitScreenState extends ConsumerState<CreateHabitScreen> {
   TimeOfDay? _reminderTime;
   String _reminderType = 'notification';
   
+  // Thêm biến cho ngày trong tuần và ngày trong tháng
+  final List<int> _selectedDaysOfWeek = [];
+  final List<int> _selectedDaysOfMonth = [];
+  
   final HabitApiService _habitApiService = HabitApiService();
   bool _isLoading = false;
 
@@ -312,8 +316,147 @@ class _CreateHabitScreenState extends ConsumerState<CreateHabitScreen> {
       children: [
         _buildFrequencyOption('daily', 'Hàng ngày', 'Mỗi ngày'),
         _buildFrequencyOption('weekly', 'Hàng tuần', 'Mỗi tuần'),
+        if (_frequency == 'weekly') _buildWeekdaySelector(),
         _buildFrequencyOption('monthly', 'Hàng tháng', 'Mỗi tháng'),
+        if (_frequency == 'monthly') _buildMonthDaySelector(),
       ],
+    );
+  }
+  
+  // Widget chọn ngày trong tuần
+  Widget _buildWeekdaySelector() {
+    final weekdays = [
+      {'day': 2, 'name': 'Thứ Hai'},
+      {'day': 3, 'name': 'Thứ Ba'},
+      {'day': 4, 'name': 'Thứ Tư'},
+      {'day': 5, 'name': 'Thứ Năm'},
+      {'day': 6, 'name': 'Thứ Sáu'},
+      {'day': 7, 'name': 'Thứ Bảy'},
+      {'day': 1, 'name': 'Chủ Nhật'},
+    ];
+    
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Chọn ngày trong tuần',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: weekdays.map((day) {
+              final isSelected = _selectedDaysOfWeek.contains(day['day']);
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    if (isSelected) {
+                      _selectedDaysOfWeek.remove(day['day']);
+                    } else {
+                      _selectedDaysOfWeek.add(day['day'] as int);
+                    }
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected 
+                        ? Theme.of(context).primaryColor
+                        : Colors.grey[800],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    day['name'] as String,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : Colors.grey[400],
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // Widget chọn ngày trong tháng
+  Widget _buildMonthDaySelector() {
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.grey.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Chọn ngày trong tháng',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: List.generate(31, (index) {
+              final day = index + 1;
+              final isSelected = _selectedDaysOfMonth.contains(day);
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    if (isSelected) {
+                      _selectedDaysOfMonth.remove(day);
+                    } else {
+                      _selectedDaysOfMonth.add(day);
+                    }
+                  });
+                },
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isSelected 
+                        ? Theme.of(context).primaryColor
+                        : Colors.grey[800],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    day.toString(),
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : Colors.grey[400],
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
     );
   }
 
@@ -561,6 +704,14 @@ class _CreateHabitScreenState extends ConsumerState<CreateHabitScreen> {
         startDate: _startDate,
         endDate: _hasEndDate ? _endDate : null,
         frequency: _frequency,
+        // Thêm daysOfWeek nếu tần suất là weekly
+        daysOfWeek: _frequency == 'weekly' && _selectedDaysOfWeek.isNotEmpty 
+            ? _selectedDaysOfWeek 
+            : null,
+        // Thêm daysOfMonth nếu tần suất là monthly
+        daysOfMonth: _frequency == 'monthly' && _selectedDaysOfMonth.isNotEmpty 
+            ? _selectedDaysOfMonth 
+            : null,
         hasReminder: _hasReminder,
         reminderTime: _hasReminder && _reminderTime != null
             ? Duration(hours: _reminderTime!.hour, minutes: _reminderTime!.minute)
