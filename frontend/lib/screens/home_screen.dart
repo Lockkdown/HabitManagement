@@ -33,6 +33,8 @@ import 'habit_schedule_screen.dart';
 
 import '../api/habit_schedule_api_service.dart';
 
+import 'login_screen.dart';
+
 import '../services/storage_service.dart';
 
 // import 'edit_habit_screen.dart'; // (TODO)
@@ -178,7 +180,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     //   // ... (code xử lý bỏ tick tương tự như thêm tick) ...
 
-    //   debugPrint("Đã tick rồi, tạm thời không làm gì (hoặc gọi API bỏ tick)");
+    //   debugPrint("Đã tick rồi, tạm thởi không làm gì (hoặc gọi API bỏ tick)");
 
     //   return;
 
@@ -390,7 +392,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ],
                 ),
               );
-              if (confirm == true) await ref.read(authProvider.notifier).logout();
+              if (confirm == true) {
+                await ref.read(authProvider.notifier).logout();
+                // Navigate đến LoginScreen sau khi logout
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const LoginScreen()),
+                    (route) => false,
+                  );
+                }
+              }
             },
           ),
         ],

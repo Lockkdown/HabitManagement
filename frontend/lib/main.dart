@@ -3,11 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'themes/app_theme.dart';
-import 'services/auth_provider.dart';
-import 'services/auth_state.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
-import 'screens/home_screen.dart';
 
 /// Hàm main - Entry point của ứng dụng
 void main() async {
@@ -71,32 +68,42 @@ class AppInitializer extends ConsumerStatefulWidget {
 }
 
 class _AppInitializerState extends ConsumerState<AppInitializer> {
+  bool _isInitializing = true;
+
   @override
   void initState() {
     super.initState();
-    // Chờ một chút để hiển thị splash screen
-    Future.delayed(const Duration(seconds: 2), () {
-      // AuthProvider sẽ tự động check auth status khi được khởi tạo
-    });
+    _initializeApp();
+  }
+
+  /// Khởi tạo app (chỉ kiểm tra trạng thái, KHÔNG tự động đăng nhập)
+  Future<void> _initializeApp() async {
+    try {
+      // Chỉ đợi splash screen hiển thị
+      // Không tự động đăng nhập bằng sinh trắc học
+      // User sẽ thấy LoginScreen (Quick Login hoặc Full Login)
+      // và tự chọn cách đăng nhập
+      await Future.delayed(const Duration(seconds: 1));
+    } catch (e) {
+      debugPrint('AppInitializer: Lỗi khởi tạo: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isInitializing = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
+    // Nếu đang khởi tạo, hiển thị splash
+    if (_isInitializing) {
+      return const SplashScreen();
+    }
 
-    // Hiển thị màn hình tương ứng với trạng thái
-    return switch (authState.status) {
-      AuthStatus.initial || AuthStatus.loading =>
-        // Đang kiểm tra hoặc đang loading - hiển thị splash
-        const SplashScreen(),
-        
-      AuthStatus.authenticated =>
-        // Đã đăng nhập - chuyển đến home
-        const HomeScreen(),
-        
-      AuthStatus.unauthenticated =>
-        // Chưa đăng nhập - chuyển đến login
-        const LoginScreen(),
-    };
+    // Sau khi khởi tạo xong, luôn hiển thị LoginScreen
+    // LoginScreen sẽ tự động kiểm tra và hiển thị Quick Login hoặc Full Login
+    return const LoginScreen();
   }
 }

@@ -22,6 +22,7 @@ dependencies:
   # Security & Storage
   flutter_secure_storage: ^9.2.4
   local_auth: ^3.0.0
+  local_auth_android: ^2.0.0
   
   # Configuration
   flutter_dotenv: ^5.2.1
