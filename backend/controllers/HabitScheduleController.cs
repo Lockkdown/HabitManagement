@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -89,15 +85,18 @@ namespace backend.Controllers
             return Ok(shouldPerform);
         }
 
-        // ✅ GET: api/HabitSchedule/due-today/{userId}
-        // Lấy danh sách thói quen cần làm hôm nay của user
+        // ✅ GET: api/HabitSchedule/due-today/{userId}?date=2023-10-26
+        // Lấy danh sách thói quen cần làm vào ngày được chọn của user
         [HttpGet("due-today/{userId}")]
-        public async Task<ActionResult<List<HabitResponseDto>>> GetHabitsDueToday(string userId)
+        public async Task<ActionResult<List<HabitResponseDto>>> GetHabitsDueToday(string userId, [FromQuery] DateTime? date = null)
         {
             try
             {
-                Console.WriteLine($"GetHabitsDueToday called for userId: {userId}");
-                var habits = await _habitScheduleService.GetHabitsDueTodayAsync(userId);
+                // Sử dụng ngày được chọn hoặc ngày hiện tại nếu không có
+                DateTime selectedDate = date ?? DateTime.Today;
+                Console.WriteLine($"GetHabitsDueToday called for userId: {userId}, date: {selectedDate:yyyy-MM-dd}");
+
+                var habits = await _habitScheduleService.GetHabitsDueTodayAsync(userId, selectedDate);
                 return Ok(habits);
             }
             catch (Exception ex)

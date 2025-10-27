@@ -177,6 +177,35 @@ public class HabitController : ControllerBase
 
         if (category == null) return BadRequest("Danh mục không tồn tại");
 
+        // Xử lý tần suất và các ngày cụ thể
+        string? daysOfWeek = null;
+        string? daysOfMonth = null;
+
+        switch (dto.Frequency.ToLower())
+        {
+            case "weekly":
+                // Xử lý ngày trong tuần (nếu có)
+                if (dto.DaysOfWeek != null && dto.DaysOfWeek.Any())
+                {
+                    daysOfWeek = System.Text.Json.JsonSerializer.Serialize(dto.DaysOfWeek);
+                }
+                break;
+            case "monthly":
+                // Xử lý ngày trong tháng (nếu có)
+                if (dto.DaysOfMonth != null && dto.DaysOfMonth.Any())
+                {
+                    daysOfMonth = System.Text.Json.JsonSerializer.Serialize(dto.DaysOfMonth);
+                }
+                break;
+            case "custom":
+                // Đảm bảo có giá trị tần suất tùy chỉnh
+                if (!dto.CustomFrequencyValue.HasValue || string.IsNullOrEmpty(dto.CustomFrequencyUnit))
+                {
+                    return BadRequest("Cần cung cấp giá trị và đơn vị tần suất tùy chỉnh");
+                }
+                break;
+        }
+
         var habit = new Habit
         {
             Name = dto.Name,
@@ -186,6 +215,8 @@ public class HabitController : ControllerBase
             StartDate = dto.StartDate,
             EndDate = dto.EndDate,
             Frequency = dto.Frequency,
+            DaysOfWeek = daysOfWeek,
+            DaysOfMonth = daysOfMonth,
             CustomFrequencyValue = dto.CustomFrequencyValue,
             CustomFrequencyUnit = dto.CustomFrequencyUnit,
             HasReminder = dto.HasReminder,
@@ -248,6 +279,87 @@ public class HabitController : ControllerBase
         if (dto.Name != null) habit.Name = dto.Name;
         if (dto.Description != null) habit.Description = dto.Description;
         if (dto.CategoryId.HasValue) habit.CategoryId = dto.CategoryId.Value;
+        
+        // Xử lý cập nhật tần suất nếu có thay đổi
+        if (dto.Frequency != null)
+        {
+            habit.Frequency = dto.Frequency;
+            
+            // Xử lý các ngày cụ thể dựa trên tần suất mới
+            switch (dto.Frequency.ToLower())
+            {
+                case "weekly":
+                    // Xử lý ngày trong tuần (nếu có)
+                    if (dto.DaysOfWeek != null && dto.DaysOfWeek.Any())
+                    {
+                        habit.DaysOfWeek = System.Text.Json.JsonSerializer.Serialize(dto.DaysOfWeek);
+                    }
+                    else
+                    {
+                        habit.DaysOfWeek = null;
+                    }
+                    // Reset các giá trị không liên quan
+                    habit.DaysOfMonth = null;
+                    break;
+                    
+                case "monthly":
+                    // Xử lý ngày trong tháng (nếu có)
+                    if (dto.DaysOfMonth != null && dto.DaysOfMonth.Any())
+                    {
+                        habit.DaysOfMonth = System.Text.Json.JsonSerializer.Serialize(dto.DaysOfMonth);
+                    }
+                    else
+                    {
+                        habit.DaysOfMonth = null;
+                    }
+                    // Reset các giá trị không liên quan
+                    habit.DaysOfWeek = null;
+                    break;
+                    
+                case "custom":
+                    // Đảm bảo có giá trị tần suất tùy chỉnh
+                    if (dto.CustomFrequencyValue.HasValue && !string.IsNullOrEmpty(dto.CustomFrequencyUnit))
+                    {
+                        habit.CustomFrequencyValue = dto.CustomFrequencyValue;
+                        habit.CustomFrequencyUnit = dto.CustomFrequencyUnit;
+                    }
+                    // Reset các giá trị không liên quan
+                    habit.DaysOfWeek = null;
+                    habit.DaysOfMonth = null;
+                    break;
+                    
+                default: // daily hoặc các loại khác
+                    // Reset tất cả các giá trị tần suất đặc biệt
+                    habit.DaysOfWeek = null;
+                    habit.DaysOfMonth = null;
+                    habit.CustomFrequencyValue = null;
+                    habit.CustomFrequencyUnit = null;
+                    break;
+            }
+        }
+        else
+        {
+            // Nếu không cập nhật tần suất nhưng có cập nhật các ngày cụ thể
+            if (habit.Frequency.ToLower() == "weekly" && dto.DaysOfWeek != null)
+            {
+                habit.DaysOfWeek = dto.DaysOfWeek.Any() 
+                    ? System.Text.Json.JsonSerializer.Serialize(dto.DaysOfWeek) 
+                    : null;
+            }
+            else if (habit.Frequency.ToLower() == "monthly" && dto.DaysOfMonth != null)
+            {
+                habit.DaysOfMonth = dto.DaysOfMonth.Any() 
+                    ? System.Text.Json.JsonSerializer.Serialize(dto.DaysOfMonth) 
+                    : null;
+            }
+            else if (habit.Frequency.ToLower() == "custom")
+            {
+                if (dto.CustomFrequencyValue.HasValue) 
+                    habit.CustomFrequencyValue = dto.CustomFrequencyValue;
+                if (!string.IsNullOrEmpty(dto.CustomFrequencyUnit)) 
+                    habit.CustomFrequencyUnit = dto.CustomFrequencyUnit;
+            }
+        }
         if (dto.StartDate.HasValue) habit.StartDate = dto.StartDate.Value;
         if (dto.EndDate.HasValue) habit.EndDate = dto.EndDate.Value;
         if (dto.Frequency != null) habit.Frequency = dto.Frequency;

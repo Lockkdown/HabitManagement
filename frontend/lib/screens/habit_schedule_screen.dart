@@ -33,9 +33,13 @@ class _HabitScheduleScreenState extends State<HabitScheduleScreen> {
     _loadHabits();
   }
 
+  DateTime getStartOfWeek(DateTime date) {
+    return date.subtract(Duration(days: date.weekday - 1));
+  }
+
   void _loadHabits() {
     setState(() {
-    _habitsFuture = _api.getHabitsDueToday(widget.userId);
+      _habitsFuture = _api.getHabitsDueToday(widget.userId, selectedDate: _selectedDate);
     });
   }
 
@@ -119,18 +123,27 @@ class _HabitScheduleScreenState extends State<HabitScheduleScreen> {
                   icon: const Icon(Icons.menu, color: Colors.white),
                   onPressed: () {},
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.pink,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'Hôm nay',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedDate = DateTime.now();
+                      _weekOffset = 0; // Reset về tuần hiện tại
+                    });
+                    _loadHabits();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.pink,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      'Hôm nay',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                 ),
