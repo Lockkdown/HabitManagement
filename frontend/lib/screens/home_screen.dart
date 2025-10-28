@@ -12,6 +12,8 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 
 import 'package:easy_date_timeline/easy_date_timeline.dart';
 
+import 'habit_journal_screen.dart';
+
 // ignore: depend_on_referenced_packages
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -36,6 +38,10 @@ import '../api/habit_schedule_api_service.dart';
 import 'login_screen.dart';
 
 import '../services/storage_service.dart';
+
+import 'settings_screen.dart';
+
+import 'statistics_screen.dart';
 
 // import 'edit_habit_screen.dart'; // (TODO)
 
@@ -371,6 +377,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(LucideIcons.settings),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SettingsScreen()),
+            );
+          },
+        ),
         title: const Text('Habit Management'),
         backgroundColor: Colors.transparent, elevation: 0,
         actions: [
@@ -764,67 +779,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
 
   void _showHabitOptions(BuildContext context, HabitModel habit) {
-
     showModalBottomSheet(
-
       context: context, backgroundColor: Colors.grey[900],
-
       builder: (ctx) => Wrap(children: [
-
         ListTile(
-
-          leading: const Icon(LucideIcons.pencil, color: Colors.white70),
-
-          title: const Text('Chỉnh sửa', style: TextStyle(color: Colors.white)),
-
-          onTap: () async {
-
-              Navigator.pop(ctx); // Đóng bottom sheet
-
-              final result = await Navigator.push(
-
-                context,
-
-               MaterialPageRoute(
-
-       // Bỏ dòng cũ: builder: (context) => const CreateHabitScreen(),
-
-                builder: (context) => EditHabitScreen(habit: habit), // <-- SỬA LẠI DÒNG NÀY
-
-    ),
-
-  );
-
-  if (result == true) {
-
-    _loadHabits(); // Tải lại nếu có chỉnh sửa
-
-  }
-
-},
-
-        ),
-
-        ListTile(
-
-          leading: const Icon(LucideIcons.trash2, color: Colors.redAccent),
-
-          title: const Text('Xóa', style: TextStyle(color: Colors.redAccent)),
-
+          leading: const Icon(LucideIcons.bookOpen, color: Colors.white70),
+          title: const Text('Nhật ký thói quen', style: TextStyle(color: Colors.white)),
           onTap: () {
-
-            Navigator.pop(ctx);
-
-            _showDeleteConfirmDialog(context, habit);
-
+            Navigator.pop(ctx); // Đóng bottom sheet
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => HabitJournalScreen(habit: habit),
+              ),
+            );
           },
-
         ),
-
+        ListTile(
+          leading: const Icon(LucideIcons.pencil, color: Colors.white70),
+          title: const Text('Chỉnh sửa', style: TextStyle(color: Colors.white)),
+          onTap: () async {
+              Navigator.pop(ctx); // Đóng bottom sheet
+              final result = await Navigator.push(
+                context,
+               MaterialPageRoute(
+       // Bỏ dòng cũ: builder: (context) => const CreateHabitScreen(),
+                builder: (context) => EditHabitScreen(habit: habit), // <-- SỬA LẠI DÒNG NÀY
+    ),
+  );
+  if (result == true) {
+    _loadHabits(); // Tải lại nếu có chỉnh sửa
+  }
+},
+        ),
+        ListTile(
+          leading: const Icon(LucideIcons.trash2, color: Colors.redAccent),
+          title: const Text('Xóa', style: TextStyle(color: Colors.redAccent)),
+          onTap: () {
+            Navigator.pop(ctx);
+            _showDeleteConfirmDialog(context, habit);
+          },
+        ),
       ]),
-
     );
-
   }
 
 
@@ -900,9 +897,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
 
   Widget _buildStatisticsScreen() {
-
-    return const Center(child: Text('Thống kê', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)));
-
+    return const StatisticsScreen();
   }
 
 

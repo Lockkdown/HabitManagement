@@ -184,10 +184,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         await _askEnableBiometric();
       }
       
-      // Sau khi hỏi biometric xong, navigate đến HomeScreen
+      // Chờ 500ms để user thấy notification trước khi navigate
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Chuyển hướng rõ ràng đến HomeScreen và clear navigation stack
       if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/home',
+          (route) => false,
         );
       }
     } else {

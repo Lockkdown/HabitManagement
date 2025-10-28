@@ -32,4 +32,23 @@ public class User : IdentityUser
     /// Mặc định là "vi".
     /// </summary>
     public string LanguageCode { get; set; } = "vi";
+
+    /// <summary>
+    /// Cài đặt bật/tắt thông báo của người dùng.
+    /// Mặc định là true (bật).
+    /// </summary>
+    public bool NotificationEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Cài đặt bật/tắt nhắc nhở hàng ngày của người dùng.
+    /// Mặc định là true (bật).
+    /// </summary>
+    public bool ReminderEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Thời gian nhắc nhở hàng ngày của người dùng.
+    /// Định dạng: HH:mm (ví dụ: "08:00").
+    /// Mặc định là "08:00".
+    /// </summary>
+    public string ReminderTime { get; set; } = "08:00";
 }

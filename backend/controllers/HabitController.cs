@@ -477,6 +477,33 @@ public class HabitController : ControllerBase
     }
 
     /// <summary>
+    /// Xóa một completion cụ thể.
+    /// </summary>
+    [HttpDelete("{habitId}/completions/{completionId}")]
+    public async Task<IActionResult> DeleteCompletion(int habitId, int completionId)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+
+        // Kiểm tra habit có thuộc về user không
+        var habit = await _context.Habits
+            .FirstOrDefaultAsync(h => h.Id == habitId && h.UserId == userId);
+
+        if (habit == null) return NotFound("Habit not found");
+
+        // Tìm completion
+        var completion = await _context.HabitCompletions
+            .FirstOrDefaultAsync(c => c.Id == completionId && c.HabitId == habitId);
+
+        if (completion == null) return NotFound("Completion not found");
+
+        _context.HabitCompletions.Remove(completion);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    /// <summary>
     /// Lấy ID của người dùng hiện tại từ JWT token.
     /// </summary>
     private string? GetCurrentUserId()
