@@ -470,6 +470,12 @@ namespace backend.Migrations
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("bit");
 
+                    b.Property<string>("TwoFactorSecret")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("TwoFactorSetupCompleted")
+                        .HasColumnType("bit");
+
                     b.Property<string>("UserName")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");

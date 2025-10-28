@@ -5,46 +5,34 @@
 namespace backend.Migrations
 {
     /// <inheritdoc />
-    public partial class AddNotificationReminderSettings : Migration
+    public partial class AddTwoFactorToUser : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<bool>(
-                name: "NotificationEnabled",
-                table: "AspNetUsers",
-                type: "bit",
-                nullable: false,
-                defaultValue: false);
-
-            migrationBuilder.AddColumn<bool>(
-                name: "ReminderEnabled",
-                table: "AspNetUsers",
-                type: "bit",
-                nullable: false,
-                defaultValue: false);
-
             migrationBuilder.AddColumn<string>(
-                name: "ReminderTime",
+                name: "TwoFactorSecret",
                 table: "AspNetUsers",
                 type: "nvarchar(max)",
+                nullable: true);
+
+            migrationBuilder.AddColumn<bool>(
+                name: "TwoFactorSetupCompleted",
+                table: "AspNetUsers",
+                type: "bit",
                 nullable: false,
-                defaultValue: "");
+                defaultValue: false);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(
-                name: "NotificationEnabled",
+                name: "TwoFactorSecret",
                 table: "AspNetUsers");
 
             migrationBuilder.DropColumn(
-                name: "ReminderEnabled",
-                table: "AspNetUsers");
-
-            migrationBuilder.DropColumn(
-                name: "ReminderTime",
+                name: "TwoFactorSetupCompleted",
                 table: "AspNetUsers");
         }
     }

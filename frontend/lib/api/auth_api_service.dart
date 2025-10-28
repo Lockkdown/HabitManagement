@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/auth_response_model.dart';
+import '../models/two_factor_login_response_model.dart';
 
 /// Service xử lý các API calls liên quan đến xác thực
 class AuthApiService {
@@ -242,6 +244,115 @@ class AuthApiService {
       }
     } catch (e) {
       throw Exception('Không thể kết nối tới server: $e');
+    }
+  }
+
+  // ==================== 2FA Methods ====================
+
+  /// Login với hỗ trợ 2FA
+  ///
+  /// Trả về [TwoFactorLoginResponseModel] với thông tin về 2FA flow
+  Future<TwoFactorLoginResponseModel> loginWith2FA({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/api/auth/login-2fa'),
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+        }),
+      );
+
+      // Debug: Log status code và response body
+      debugPrint('Login response status: ${response.statusCode}');
+      debugPrint('Login response body: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return TwoFactorLoginResponseModel.fromJson(data);
+      } else {
+        // Parse error response
+        final data = jsonDecode(response.body);
+        final errorMessage = data['message'] ?? 'Đăng nhập thất bại';
+        debugPrint('Error message from backend: $errorMessage');
+        throw Exception(errorMessage);
+      }
+    } on http.ClientException {
+      throw Exception('Không thể kết nối đến server');
+    } on FormatException {
+      throw Exception('Dữ liệu trả về không hợp lệ');
+    }
+  }
+
+  /// Verify OTP khi setup 2FA lần đầu
+  ///
+  /// Nhận vào [tempToken] và [otp]
+  /// Trả về [AuthResponseModel] nếu thành công
+  Future<AuthResponseModel> verifyTwoFactorSetup({
+    required String tempToken,
+    required String otp,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/api/auth/verify-2fa-setup'),
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: jsonEncode({
+          'tempToken': tempToken,
+          'otp': otp,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return AuthResponseModel.fromJson(data);
+      } else {
+        throw Exception(data['message'] ?? 'OTP không đúng');
+      }
+    } catch (e) {
+      throw Exception('Lỗi kết nối: $e');
+    }
+  }
+
+  /// Verify OTP khi đăng nhập lần sau
+  ///
+  /// Nhận vào [tempToken] và [otp]
+  /// Trả về [AuthResponseModel] nếu thành công
+  Future<AuthResponseModel> verifyTwoFactorLogin({
+    required String tempToken,
+    required String otp,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/api/auth/verify-2fa-login'),
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: jsonEncode({
+          'tempToken': tempToken,
+          'otp': otp,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return AuthResponseModel.fromJson(data);
+      } else {
+        throw Exception(data['message'] ?? 'OTP không đúng');
+      }
+    } catch (e) {
+      throw Exception('Lỗi kết nối: $e');
     }
   }
 }
