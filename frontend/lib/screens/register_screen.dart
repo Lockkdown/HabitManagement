@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:elegant_notification/elegant_notification.dart';
+import '../utils/app_notification.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import '../services/auth_provider.dart';
 
@@ -81,10 +81,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     if (success) {
       // Hiển thị thông báo thành công
-      ElegantNotification.success(
-        title: const Text('Thành công'),
-        description: const Text('Đăng ký thành công! Vui lòng đăng nhập'),
-      ).show(context);
+      AppNotification.showSuccess(context, 'Đăng ký thành công! Vui lòng đăng nhập');
       
       // Chờ 500ms để user thấy notification trước khi navigate
       await Future.delayed(const Duration(milliseconds: 500));
@@ -97,10 +94,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       // Hiển thị thông báo lỗi
       final errorMessage = ref.read(authProvider).errorMessage ?? 
           'Đăng ký thất bại';
-      ElegantNotification.error(
-        title: const Text('Lỗi'),
-        description: Text(errorMessage),
-      ).show(context);
+      AppNotification.showError(context, errorMessage);
     }
   }
 

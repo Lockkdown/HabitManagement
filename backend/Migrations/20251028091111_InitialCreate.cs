@@ -34,6 +34,9 @@ namespace backend.Migrations
                     DateOfBirth = table.Column<DateTime>(type: "datetime2", nullable: true),
                     ThemePreference = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     LanguageCode = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    NotificationEnabled = table.Column<bool>(type: "bit", nullable: false),
+                    ReminderEnabled = table.Column<bool>(type: "bit", nullable: false),
+                    ReminderTime = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     UserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
                     NormalizedUserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
                     Email = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
@@ -247,6 +250,30 @@ namespace backend.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "HabitNotes",
+                columns: table => new
+                {
+                    note_id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    habit_id = table.Column<int>(type: "int", nullable: false),
+                    date = table.Column<DateTime>(type: "date", nullable: false),
+                    content = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: false),
+                    mood = table.Column<int>(type: "int", nullable: true),
+                    created_at = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()"),
+                    updated_at = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_HabitNotes", x => x.note_id);
+                    table.ForeignKey(
+                        name: "FK_HabitNotes_Habits_habit_id",
+                        column: x => x.habit_id,
+                        principalTable: "Habits",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "HabitSchedules",
                 columns: table => new
                 {
@@ -325,6 +352,22 @@ namespace backend.Migrations
                 column: "HabitId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_HabitNotes_date",
+                table: "HabitNotes",
+                column: "date");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_HabitNotes_habit_id",
+                table: "HabitNotes",
+                column: "habit_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_HabitNotes_HabitId_Date",
+                table: "HabitNotes",
+                columns: new[] { "habit_id", "date" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Habits_CategoryId",
                 table: "Habits",
                 column: "CategoryId");
@@ -360,6 +403,9 @@ namespace backend.Migrations
 
             migrationBuilder.DropTable(
                 name: "HabitCompletions");
+
+            migrationBuilder.DropTable(
+                name: "HabitNotes");
 
             migrationBuilder.DropTable(
                 name: "HabitSchedules");

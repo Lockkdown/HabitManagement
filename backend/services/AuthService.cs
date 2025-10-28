@@ -6,6 +6,8 @@ using backend.Models.Dtos;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
+using OtpNet;
+using QRCoder;
 
 namespace backend.Services;
 
@@ -430,4 +432,351 @@ public class AuthService
             throw new Exception($"Refresh token không hợp lệ: {ex.Message}");
         }
     }
+
+    #region 2FA Public Methods
+
+    /// <summary>
+    /// Tạo tài khoản Admin (tự động enable 2FA)
+    /// </summary>
+    public async Task<(bool Success, string[] Errors, string? SecretKey, string? QrCode)> CreateAdminAsync(CreateAdminDto createAdminDto)
+    {
+        var user = new User
+        {
+            UserName = createAdminDto.Email,
+            Email = createAdminDto.Email,
+            FullName = createAdminDto.FullName,
+            PhoneNumber = createAdminDto.PhoneNumber,
+            EmailConfirmed = true, // Admin auto-confirmed
+            TwoFactorEnabled = true, // Admin bắt buộc 2FA
+            TwoFactorSetupCompleted = false
+        };
+
+        // Tạo Secret Key TOTP
+        var secretKey = GenerateTotpSecret();
+        user.TwoFactorSecret = secretKey;
+
+        // Tạo user
+        var result = await _userManager.CreateAsync(user, createAdminDto.Password);
+        if (!result.Succeeded)
+        {
+            return (false, result.Errors.Select(e => e.Description).ToArray(), null, null);
+        }
+
+        // Gán role Admin
+        var roleResult = await _userManager.AddToRoleAsync(user, "Admin");
+        if (!roleResult.Succeeded)
+        {
+            Console.WriteLine($"Warning: Không thể gán role Admin cho {user.Email}");
+        }
+
+        // Tạo QR Code
+        var qrCode = GenerateQrCode(secretKey, user.Email!);
+
+        // TODO: Gửi email với QR Code (implement SendAdminSetup2FAEmail later)
+        // _ = Task.Run(async () =>
+        // {
+        //     try
+        //     {
+        //         await _emailService.SendAdminSetup2FAEmail(user.Email!, user.FullName, qrCode, secretKey);
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         Console.WriteLine($"Warning: Không thể gửi email setup 2FA cho {user.Email}: {ex.Message}");
+        //     }
+        // });
+
+        return (true, Array.Empty<string>(), secretKey, qrCode);
+    }
+
+    /// <summary>
+    /// Login với hỗ trợ 2FA
+    /// </summary>
+    public async Task<TwoFactorLoginResponseDto?> LoginWithTwoFactorAsync(LoginDto loginDto)
+    {
+        // Tìm user theo email
+        var user = await _userManager.FindByEmailAsync(loginDto.Email);
+        if (user == null)
+        {
+            throw new Exception("Email hoặc mật khẩu không đúng");
+        }
+
+        // Kiểm tra xem user có bị khóa không
+        var isLockedOut = await _userManager.IsLockedOutAsync(user);
+        Console.WriteLine($"[AuthService] User {user.Email} - IsLockedOut: {isLockedOut}, LockoutEnd: {user.LockoutEnd}");
+        
+        if (isLockedOut)
+        {
+            throw new Exception("Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.");
+        }
+
+        // Kiểm tra password
+        var result = await _signInManager.CheckPasswordSignInAsync(user, loginDto.Password, false);
+        if (!result.Succeeded)
+        {
+            if (result.IsLockedOut)
+            {
+                throw new Exception("Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.");
+            }
+            throw new Exception("Email hoặc mật khẩu không đúng");
+        }
+
+        // Kiểm tra user có bật 2FA không
+        if (user.TwoFactorEnabled)
+        {
+            // Lần đầu: cần setup 2FA
+            if (!user.TwoFactorSetupCompleted)
+            {
+                var tempToken = GenerateTempToken(user.Id);
+                var qrCode = GenerateQrCode(user.TwoFactorSecret!, user.Email!);
+
+                return new TwoFactorLoginResponseDto
+                {
+                    RequiresTwoFactorSetup = true,
+                    TempToken = tempToken,
+                    QrCode = qrCode,
+                    SecretKey = user.TwoFactorSecret
+                };
+            }
+
+            // Lần sau: yêu cầu verify OTP
+            var tempToken2 = GenerateTempToken(user.Id);
+            return new TwoFactorLoginResponseDto
+            {
+                RequiresTwoFactorVerification = true,
+                TempToken = tempToken2
+            };
+        }
+
+        // User thường: không cần 2FA, cấp token ngay
+        var accessToken = await GenerateAccessTokenAsync(user);
+        var refreshToken = await GenerateRefreshTokenAsync(user);
+        var expirationMinutes = int.Parse(Environment.GetEnvironmentVariable("JWT_ACCESS_TOKEN_EXPIRATION_MINUTES") ?? "30");
+        var expiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes);
+
+        return new TwoFactorLoginResponseDto
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken,
+            ExpiresAt = expiresAt,
+            User = new AuthResponseDto
+            {
+                UserId = user.Id,
+                Username = user.UserName!,
+                Email = user.Email!,
+                FullName = user.FullName,
+                ThemePreference = user.ThemePreference,
+                LanguageCode = user.LanguageCode,
+                AccessToken = accessToken,
+                RefreshToken = refreshToken,
+                ExpiresAt = expiresAt
+            }
+        };
+    }
+
+    /// <summary>
+    /// Verify OTP khi setup 2FA lần đầu
+    /// </summary>
+    public async Task<AuthResponseDto?> VerifyTwoFactorSetupAsync(VerifyTwoFactorDto verifyDto)
+    {
+        try
+        {
+            var userId = ValidateTempToken(verifyDto.TempToken);
+            var user = await _userManager.FindByIdAsync(userId);
+            
+            if (user == null)
+                return null;
+
+            // Verify OTP
+            if (!VerifyTotp(user.TwoFactorSecret!, verifyDto.Otp))
+                return null;
+
+            // Setup hoàn tất
+            user.TwoFactorSetupCompleted = true;
+            await _userManager.UpdateAsync(user);
+
+            // Cấp token
+            var accessToken = await GenerateAccessTokenAsync(user);
+            var refreshToken = await GenerateRefreshTokenAsync(user);
+            var expirationMinutes = int.Parse(Environment.GetEnvironmentVariable("JWT_ACCESS_TOKEN_EXPIRATION_MINUTES") ?? "30");
+            var expiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes);
+
+            return new AuthResponseDto
+            {
+                UserId = user.Id,
+                Username = user.UserName!,
+                Email = user.Email!,
+                FullName = user.FullName,
+                ThemePreference = user.ThemePreference,
+                LanguageCode = user.LanguageCode,
+                AccessToken = accessToken,
+                RefreshToken = refreshToken,
+                ExpiresAt = expiresAt
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Verify OTP khi login lần sau
+    /// </summary>
+    public async Task<AuthResponseDto?> VerifyTwoFactorLoginAsync(VerifyTwoFactorDto verifyDto)
+    {
+        try
+        {
+            var userId = ValidateTempToken(verifyDto.TempToken);
+            var user = await _userManager.FindByIdAsync(userId);
+            
+            if (user == null)
+                return null;
+
+            // Verify OTP
+            if (!VerifyTotp(user.TwoFactorSecret!, verifyDto.Otp))
+                return null;
+
+            // Cấp token
+            var accessToken = await GenerateAccessTokenAsync(user);
+            var refreshToken = await GenerateRefreshTokenAsync(user);
+            var expirationMinutes = int.Parse(Environment.GetEnvironmentVariable("JWT_ACCESS_TOKEN_EXPIRATION_MINUTES") ?? "30");
+            var expiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes);
+
+            return new AuthResponseDto
+            {
+                UserId = user.Id,
+                Username = user.UserName!,
+                Email = user.Email!,
+                FullName = user.FullName,
+                ThemePreference = user.ThemePreference,
+                LanguageCode = user.LanguageCode,
+                AccessToken = accessToken,
+                RefreshToken = refreshToken,
+                ExpiresAt = expiresAt
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    #endregion
+
+    #region 2FA Helper Methods
+
+    /// <summary>
+    /// Tạo Secret Key TOTP (32 ký tự Base32)
+    /// </summary>
+    private string GenerateTotpSecret()
+    {
+        var key = KeyGeneration.GenerateRandomKey(32);
+        return Base32Encoding.ToString(key);
+    }
+
+    /// <summary>
+    /// Tạo QR Code từ Secret Key
+    /// </summary>
+    private string GenerateQrCode(string secretKey, string email)
+    {
+        try
+        {
+            var qrGenerator = new QRCodeGenerator();
+            var otpAuthUrl = $"otpauth://totp/HabitManagement:{email}?secret={secretKey}&issuer=HabitManagement";
+            var qrCodeData = qrGenerator.CreateQrCode(otpAuthUrl, QRCodeGenerator.ECCLevel.Q);
+            
+            var qrCode = new PngByteQRCode(qrCodeData);
+            var qrCodeImage = qrCode.GetGraphic(10);
+            
+            return Convert.ToBase64String(qrCodeImage);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error generating QR code: {ex.Message}");
+            return string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Verify OTP từ TOTP
+    /// </summary>
+    private bool VerifyTotp(string secretKey, string otp)
+    {
+        try
+        {
+            var bytes = Base32Encoding.ToBytes(secretKey);
+            var totp = new Totp(bytes);
+            
+            return totp.VerifyTotp(otp, out long timeStepMatched, VerificationWindow.RfcSpecifiedNetworkDelay);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error verifying TOTP: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Tạo temporary token (JWT ngắn hạn 5 phút)
+    /// </summary>
+    private string GenerateTempToken(string userId)
+    {
+        var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")!;
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, userId),
+            new("TokenType", "Temporary")
+        };
+
+        var token = new JwtSecurityToken(
+            issuer: Environment.GetEnvironmentVariable("JWT_ISSUER"),
+            audience: Environment.GetEnvironmentVariable("JWT_AUDIENCE"),
+            claims: claims,
+            expires: DateTime.UtcNow.AddMinutes(5), // 5 phút
+            signingCredentials: credentials
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    /// <summary>
+    /// Validate temporary token và lấy userId
+    /// </summary>
+    private string ValidateTempToken(string tempToken)
+    {
+        try
+        {
+            var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")!;
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var validationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER"),
+                ValidAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE"),
+                IssuerSigningKey = key
+            };
+
+            var principal = tokenHandler.ValidateToken(tempToken, validationParameters, out SecurityToken validatedToken);
+            var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(userId))
+                throw new Exception("Invalid token: UserId not found");
+
+            return userId;
+        }
+        catch (Exception ex)
+        {
+            throw new UnauthorizedAccessException($"Invalid temporary token: {ex.Message}");
+        }
+    }
+
+    #endregion
 }

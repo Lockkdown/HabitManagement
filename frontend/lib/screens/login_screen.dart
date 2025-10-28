@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:elegant_notification/elegant_notification.dart';
+import '../utils/app_notification.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import '../services/auth_provider.dart';
 import '../services/biometric_service.dart';
 import '../services/storage_service.dart';
+import '../api/auth_api_service.dart';
 import 'register_screen.dart';
 import 'waiting_verification_screen.dart';
 import 'home_screen.dart';
+import 'setup_2fa_screen.dart';
+import 'verify_2fa_screen.dart';
+import 'admin_dashboard_screen.dart';
+import '../utils/jwt_decoder.dart';
 
 /// Màn hình đăng nhập
 class LoginScreen extends ConsumerStatefulWidget {
@@ -18,6 +23,9 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
+  /// API Service cho 2FA
+  final _authApiService = AuthApiService();
+  
   /// Controller cho các text field
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -112,27 +120,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (success) {
         // Hiển thị thông báo thành công
-        ElegantNotification.success(
-          title: const Text('Thành công'),
-          description: const Text('Đăng nhập thành công!'),
-        ).show(context);
+        AppNotification.showSuccess(context, 'Đăng nhập thành công!');
 
         // Navigate đến HomeScreen
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const HomeScreen()),
         );
       } else {
-        ElegantNotification.error(
-          title: const Text('Lỗi'),
-          description: const Text('Đăng nhập thất bại. Vui lòng đăng nhập bằng email/password'),
-        ).show(context);
+        AppNotification.showError(context, 'Đăng nhập thất bại. Vui lòng đăng nhập bằng email/password');
       }
     } catch (e) {
       if (mounted) {
-        ElegantNotification.error(
-          title: const Text('Lỗi'),
-          description: Text('Lỗi: $e'),
-        ).show(context);
+        AppNotification.showError(context, 'Lỗi: $e');
       }
     } finally {
       if (mounted) {
@@ -143,7 +142,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  /// Xử lý đăng nhập
+  /// Xử lý đăng nhập với hỗ trợ 2FA
   Future<void> _handleLogin() async {
     // Validate form
     if (!_formKey.currentState!.validate()) {
@@ -155,57 +154,99 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _isLoading = true;
     });
 
-    // Gọi API đăng nhập
-    final success = await ref.read(authProvider.notifier).login(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
+    try {
+      // Gọi API đăng nhập với 2FA
+      final response = await _authApiService.loginWith2FA(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      if (!mounted) return;
+
+      // Case 1: Admin lần đầu - cần setup 2FA
+      if (response.requiresTwoFactorSetup) {
+        setState(() => _isLoading = false);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => Setup2FAScreen(
+              twoFactorResponse: response,
+            ),
+          ),
+        );
+        return;
+      }
+
+      // Case 2: Admin lần sau - cần verify OTP
+      if (response.requiresTwoFactorVerification) {
+        setState(() => _isLoading = false);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => Verify2FAScreen(
+              tempToken: response.tempToken!,
+            ),
+          ),
+        );
+        return;
+      }
+
+      // Case 3: User thường - không cần 2FA, lưu thông tin và navigate
+      if (response.accessToken != null && response.user != null) {
+        final storageService = StorageService();
+        
+        // Lưu tokens
+        await storageService.saveAccessToken(response.accessToken!);
+        await storageService.saveRefreshToken(response.refreshToken!);
+        
+        // Lưu thông tin user
+        await storageService.saveUserInfo(
+          userId: response.user!['userId'] ?? '',
+          username: response.user!['username'] ?? '',
+          email: response.user!['email'] ?? '',
+          fullName: response.user!['fullName'] ?? '',
+          themePreference: response.user!['themePreference'] ?? 'dark',
+          languageCode: response.user!['languageCode'] ?? 'vi',
         );
 
-    // Kết thúc loading
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-    }
+        if (!mounted) return;
 
-    if (!mounted) return;
+        // Hiển thị thông báo thành công
+        AppNotification.showSuccess(context, 'Đăng nhập thành công!');
 
-    if (success) {
-      // Hiển thị thông báo thành công
-      if (mounted) {
-        ElegantNotification.success(
-          title: const Text('Thành công'),
-          description: const Text('Đăng nhập thành công!'),
-        ).show(context);
+        // Hỏi bật sinh trậc học (chỉ cho User thường)
+        final isAdmin = JwtDecoder.isAdmin(response.accessToken!);
+        if (!isAdmin) {
+          await _askEnableBiometric();
+        }
+
+        // Navigate: Admin → Dashboard, User → Home
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted) {
+          if (isAdmin) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const AdminDashboardScreen()),
+            );
+          } else {
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              '/home',
+              (route) => false,
+            );
+          }
+        }
       }
+    } catch (e) {
+      if (!mounted) return;
       
-      // Hỏi bật sinh trắc học TRƯỚC KHI navigate
+      AppNotification.showError(context, e.toString().replaceAll('Exception: ', ''));
+    } finally {
       if (mounted) {
-        await _askEnableBiometric();
+        setState(() => _isLoading = false);
       }
-      
-      // Chờ 500ms để user thấy notification trước khi navigate
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      // Chuyển hướng rõ ràng đến HomeScreen và clear navigation stack
-      if (mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          '/home',
-          (route) => false,
-        );
-      }
-    } else {
-      // Hiển thị thông báo lỗi
-      final errorMessage = ref.read(authProvider).errorMessage ?? 
-          'Đăng nhập thất bại';
-      ElegantNotification.error(
-        title: const Text('Lỗi'),
-        description: Text(errorMessage),
-      ).show(context);
     }
   }
 
-  /// Xử lý Quick Login (chỉ cần password)
+  /// Xử lý Quick Login (chỉ cần password) với hỗ trợ 2FA
   Future<void> _handleQuickLogin() async {
     // Validate form
     if (!_formKey.currentState!.validate()) {
@@ -214,10 +255,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     // Kiểm tra có email đã lưu không
     if (_savedEmail == null || _savedEmail!.isEmpty) {
-      ElegantNotification.error(
-        title: const Text('Lỗi'),
-        description: const Text('Không tìm thấy thông tin đăng nhập'),
-      ).show(context);
+      AppNotification.showError(context, 'Không tìm thấy thông tin đăng nhập');
       return;
     }
 
@@ -226,44 +264,88 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _isLoading = true;
     });
 
-    // Gọi API đăng nhập với email đã lưu
-    final success = await ref.read(authProvider.notifier).login(
-          email: _savedEmail!,
-          password: _passwordController.text,
+    try {
+      // Gọi API đăng nhập với 2FA
+      final response = await _authApiService.loginWith2FA(
+        email: _savedEmail!,
+        password: _passwordController.text,
+      );
+
+      if (!mounted) return;
+
+      // Case 1: Admin lần đầu - cần setup 2FA
+      if (response.requiresTwoFactorSetup) {
+        setState(() => _isLoading = false);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => Setup2FAScreen(
+              twoFactorResponse: response,
+            ),
+          ),
+        );
+        return;
+      }
+
+      // Case 2: Admin lần sau - cần verify OTP
+      if (response.requiresTwoFactorVerification) {
+        setState(() => _isLoading = false);
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => Verify2FAScreen(
+              tempToken: response.tempToken!,
+            ),
+          ),
+        );
+        return;
+      }
+
+      // Case 3: User thường - không cần 2FA
+      if (response.accessToken != null && response.user != null) {
+        final storageService = StorageService();
+        
+        // Lưu tokens
+        await storageService.saveAccessToken(response.accessToken!);
+        await storageService.saveRefreshToken(response.refreshToken!);
+        
+        // Lưu thông tin user
+        await storageService.saveUserInfo(
+          userId: response.user!['userId'] ?? '',
+          username: response.user!['username'] ?? '',
+          email: response.user!['email'] ?? '',
+          fullName: response.user!['fullName'] ?? '',
+          themePreference: response.user!['themePreference'] ?? 'dark',
+          languageCode: response.user!['languageCode'] ?? 'vi',
         );
 
-    // Kết thúc loading
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-    }
+        if (!mounted) return;
 
-    if (!mounted) return;
+        // Hiển thị thông báo thành công
+        AppNotification.showSuccess(context, 'Đăng nhập thành công!');
 
-    if (success) {
-      // Hiển thị thông báo thành công
-      if (mounted) {
-        ElegantNotification.success(
-          title: const Text('Thành công'),
-          description: const Text('Đăng nhập thành công!'),
-        ).show(context);
+        // Navigate: Admin → Dashboard, User → Home (không hỏi biometric)
+        if (mounted) {
+          final isAdmin = JwtDecoder.isAdmin(response.accessToken!);
+          if (isAdmin) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const AdminDashboardScreen()),
+            );
+          } else {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const HomeScreen()),
+            );
+          }
+        }
       }
+    } catch (e) {
+      if (!mounted) return;
       
-      // Navigate đến HomeScreen (không hỏi biometric vì đã bật rồi)
+      AppNotification.showError(context, e.toString().replaceAll('Exception: ', ''));
+    } finally {
       if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
+        setState(() => _isLoading = false);
       }
-    } else {
-      // Hiển thị thông báo lỗi
-      final errorMessage = ref.read(authProvider).errorMessage ?? 
-          'Đăng nhập thất bại';
-      ElegantNotification.error(
-        title: const Text('Lỗi'),
-        description: Text(errorMessage),
-      ).show(context);
     }
   }
 
@@ -348,15 +430,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (!mounted) return;
 
         if (enabled) {
-          ElegantNotification.success(
-            title: const Text('Thành công'),
-            description: const Text('Đã bật đăng nhập sinh trắc học'),
-          ).show(context);
+          AppNotification.showSuccess(context, 'Đã bật đăng nhập sinh trắc học');
         } else {
-          ElegantNotification.error(
-            title: const Text('Lỗi'),
-            description: const Text('Không thể bật sinh trắc học'),
-          ).show(context);
+          AppNotification.showError(context, 'Không thể bật sinh trắc học');
         }
       } else {
         debugPrint('LoginScreen: Người dùng chọn không bật sinh trắc học');
@@ -405,10 +481,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (tokenId != null && tokenId.isNotEmpty) {
         // Hiển thị thông báo thành công
-        ElegantNotification.success(
-          title: const Text('Đã gửi email'),
-          description: const Text('Vui lòng kiểm tra email của bạn'),
-        ).show(context);
+        AppNotification.showSuccess(context, 'Đã gửi email. Vui lòng kiểm tra email của bạn');
 
         // Chuyển sang màn hình chờ xác nhận
         await Future.delayed(const Duration(milliseconds: 500));
@@ -426,10 +499,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       } else {
         // Hiển thị lỗi
-        ElegantNotification.error(
-          title: const Text('Lỗi'),
-          description: const Text('Không thể gửi email reset'),
-        ).show(context);
+        AppNotification.showError(context, 'Không thể gửi email reset');
       }
     }
   }

@@ -204,7 +204,7 @@ class _WaitingVerificationScreenState extends State<WaitingVerificationScreen>
                 Text(
                   'Chúng tôi đã gửi email xác nhận đến:',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                       ),
                   textAlign: TextAlign.center,
                 ),
@@ -218,7 +218,7 @@ class _WaitingVerificationScreenState extends State<WaitingVerificationScreen>
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.blue[50],
+                    color: Theme.of(context).colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -226,7 +226,7 @@ class _WaitingVerificationScreenState extends State<WaitingVerificationScreen>
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
                     ),
                   ),
                 ),
@@ -237,9 +237,11 @@ class _WaitingVerificationScreenState extends State<WaitingVerificationScreen>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.orange[50],
+                    color: Theme.of(context).colorScheme.secondaryContainer,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.orange[200]!),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outline.withOpacity(0.3),
+                    ),
                   ),
                   child: Column(
                     children: [
@@ -247,7 +249,7 @@ class _WaitingVerificationScreenState extends State<WaitingVerificationScreen>
                         children: [
                           Icon(
                             LucideIcons.info,
-                            color: Colors.orange[700],
+                            color: Theme.of(context).colorScheme.onSecondaryContainer,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
@@ -255,7 +257,7 @@ class _WaitingVerificationScreenState extends State<WaitingVerificationScreen>
                             'Hướng dẫn:',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Colors.orange[700],
+                              color: Theme.of(context).colorScheme.onSecondaryContainer,
                             ),
                           ),
                         ],
@@ -293,7 +295,7 @@ class _WaitingVerificationScreenState extends State<WaitingVerificationScreen>
                   'Đang chờ xác nhận từ email...',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.grey[600],
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -325,14 +327,14 @@ class _InstructionStep extends StatelessWidget {
           width: 24,
           height: 24,
           decoration: BoxDecoration(
-            color: Colors.orange[700],
+            color: Theme.of(context).colorScheme.primary,
             shape: BoxShape.circle,
           ),
           child: Center(
             child: Text(
               number,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onPrimary,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),

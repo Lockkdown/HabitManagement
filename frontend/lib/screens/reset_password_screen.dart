@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:elegant_notification/elegant_notification.dart';
+import '../utils/app_notification.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import '../api/auth_api_service.dart';
 
@@ -72,10 +72,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
       if (!mounted) return;
 
       // Hiển thị thông báo thành công
-      ElegantNotification.success(
-        title: const Text('Thành công'),
-        description: Text(response),
-      ).show(context);
+      AppNotification.showSuccess(context, response);
 
       // Chờ 1.5 giây để user thấy notification
       await Future.delayed(const Duration(milliseconds: 1500));
@@ -89,10 +86,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
     } catch (e) {
       if (!mounted) return;
       
-      ElegantNotification.error(
-        title: const Text('Lỗi'),
-        description: Text(e.toString()),
-      ).show(context);
+      AppNotification.showError(context, e.toString());
     } finally {
       if (mounted) {
         setState(() {

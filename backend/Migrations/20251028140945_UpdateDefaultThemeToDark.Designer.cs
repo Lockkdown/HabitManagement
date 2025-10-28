@@ -12,8 +12,8 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251027175606_AddHabitNotesTable")]
-    partial class AddHabitNotesTable
+    [Migration("20251028140945_UpdateDefaultThemeToDark")]
+    partial class UpdateDefaultThemeToDark
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -471,6 +471,12 @@ namespace backend.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("TwoFactorEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("TwoFactorSecret")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("TwoFactorSetupCompleted")
                         .HasColumnType("bit");
 
                     b.Property<string>("UserName")

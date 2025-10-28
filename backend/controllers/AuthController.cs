@@ -274,6 +274,113 @@ public class AuthController : ControllerBase
         }
     }
 
+    #region 2FA Endpoints
+
+    /// <summary>
+    /// Tạo tài khoản Admin (bắt buộc 2FA)
+    /// </summary>
+    [HttpPost("create-admin")]
+    public async Task<IActionResult> CreateAdmin([FromBody] CreateAdminDto createAdminDto)
+    {
+        try
+        {
+            var (success, errors, secretKey, qrCode) = await _authService.CreateAdminAsync(createAdminDto);
+
+            if (!success)
+            {
+                return BadRequest(new { message = "Tạo tài khoản Admin thất bại", errors });
+            }
+
+            return Ok(new
+            {
+                message = "Tạo tài khoản Admin thành công",
+                secretKey,
+                qrCode,
+                instruction = "Admin cần scan QR Code bằng Google Authenticator để setup 2FA"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi khi tạo tài khoản Admin");
+            return StatusCode(500, new { message = "Có lỗi xảy ra khi tạo tài khoản Admin" });
+        }
+    }
+
+    /// <summary>
+    /// Đăng nhập với hỗ trợ 2FA
+    /// </summary>
+    [HttpPost("login-2fa")]
+    public async Task<IActionResult> LoginWithTwoFactor([FromBody] LoginDto loginDto)
+    {
+        try
+        {
+            var response = await _authService.LoginWithTwoFactorAsync(loginDto);
+
+            if (response == null)
+            {
+                return Unauthorized(new { message = "Email hoặc mật khẩu không đúng" });
+            }
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi khi đăng nhập với 2FA - Message: {Message}", ex.Message);
+            // Trả về message cụ thể từ exception (VD: tài khoản bị khóa)
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Verify OTP khi setup 2FA lần đầu
+    /// </summary>
+    [HttpPost("verify-2fa-setup")]
+    public async Task<IActionResult> VerifyTwoFactorSetup([FromBody] VerifyTwoFactorDto verifyDto)
+    {
+        try
+        {
+            var response = await _authService.VerifyTwoFactorSetupAsync(verifyDto);
+
+            if (response == null)
+            {
+                return BadRequest(new { message = "OTP không đúng hoặc đã hết hạn" });
+            }
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi khi verify 2FA setup");
+            return StatusCode(500, new { message = "Có lỗi xảy ra khi verify 2FA setup" });
+        }
+    }
+
+    /// <summary>
+    /// Verify OTP khi đăng nhập lần sau
+    /// </summary>
+    [HttpPost("verify-2fa-login")]
+    public async Task<IActionResult> VerifyTwoFactorLogin([FromBody] VerifyTwoFactorDto verifyDto)
+    {
+        try
+        {
+            var response = await _authService.VerifyTwoFactorLoginAsync(verifyDto);
+
+            if (response == null)
+            {
+                return BadRequest(new { message = "OTP không đúng hoặc đã hết hạn" });
+            }
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Lỗi khi verify 2FA login");
+            return StatusCode(500, new { message = "Có lỗi xảy ra khi verify 2FA login" });
+        }
+    }
+
+    #endregion
+
     /// <summary>
     /// Kiểm tra trạng thái server.
     /// Endpoint này không yêu cầu xác thực.
