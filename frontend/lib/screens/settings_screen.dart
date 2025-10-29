@@ -4,6 +4,7 @@ import 'package:provider/provider.dart' as provider;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/storage_service.dart';
 import '../services/auth_provider.dart';
+import '../services/biometric_service.dart';
 import '../themes/theme_provider.dart';
 import '../api/habit_api_service.dart';
 import '../api/user_api_service.dart';
@@ -25,6 +26,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final StorageService _storageService = StorageService();
   final HabitApiService _habitApiService = HabitApiService();
   final UserApiService _userApiService = UserApiService();
+  final BiometricService _biometricService = BiometricService();
   
   // Controllers cho form chỉnh sửa thông tin
   final TextEditingController _fullNameController = TextEditingController();
@@ -35,6 +37,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   // Trạng thái các settings
   bool _notificationsEnabled = true;
   bool _remindersEnabled = true;
+  bool _biometricEnabled = false;
   String _reminderTime = '08:00';
   int _currentHabitColorValue = 0xFF6366F1; // Giá trị màu mặc định
   int _weekStartDay = 1; // 0 = Chủ nhật, 1 = Thứ 2, ...
@@ -50,6 +53,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     super.initState();
     _loadUserData();
     _loadSettings();
+    _loadBiometricSettings();
   }
 
   @override
@@ -157,6 +161,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     } catch (e) {
       print('Error loading settings: $e'); // Debug log
       _showErrorSnackBar('Có lỗi xảy ra khi tải cài đặt');
+    }
+  }
+
+  /// Load cài đặt sinh trắc học
+  Future<void> _loadBiometricSettings() async {
+    try {
+      final isBiometricEnabled = await _storageService.isBiometricEnabled();
+      
+      setState(() {
+        _biometricEnabled = isBiometricEnabled;
+      });
+      
+      print('Loaded biometric settings: enabled=$_biometricEnabled');
+    } catch (e) {
+      print('Error loading biometric settings: $e');
+      // Không hiển thị lỗi cho người dùng vì đây không phải lỗi nghiêm trọng
     }
   }
 
@@ -447,6 +467,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            _buildSettingTile(
+              icon: LucideIcons.fingerprint,
+              title: 'Đăng nhập sinh trắc học',
+              subtitle: 'Sử dụng vân tay hoặc khuôn mặt để đăng nhập',
+              trailing: Switch(
+                value: _biometricEnabled,
+                onChanged: (value) => _toggleBiometric(value),
+                activeColor: const Color(0xFFE91E63),
+              ),
+            ),
+            const Divider(color: Colors.white24),
             _buildSettingTile(
               icon: LucideIcons.download,
               title: 'Xuất dữ liệu',
@@ -1574,6 +1605,63 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         print('Error during logout: $e');
         _showErrorSnackBar('Có lỗi xảy ra khi đăng xuất: $e');
       }
+    }
+  }
+
+  /// Bật/tắt sinh trắc học
+  Future<void> _toggleBiometric(bool enabled) async {
+    try {
+      if (enabled) {
+        // Kiểm tra thiết bị có hỗ trợ sinh trắc học không
+        final isAvailable = await _biometricService.canUseBiometric();
+        if (!isAvailable) {
+          _showErrorSnackBar('Thiết bị không hỗ trợ sinh trắc học');
+          return;
+        }
+
+        // Kiểm tra có sinh trắc học nào được đăng ký không
+        final hasBiometric = await _biometricService.hasBiometricEnrolled();
+        if (!hasBiometric) {
+          _showErrorSnackBar('Vui lòng đăng ký sinh trắc học trong cài đặt thiết bị trước');
+          return;
+        }
+
+        // Xác thực sinh trắc học trước khi bật
+        final isAuthenticated = await _biometricService.authenticate();
+
+        if (!isAuthenticated) {
+          _showErrorSnackBar('Xác thực sinh trắc học thất bại');
+          return;
+        }
+
+        // Bật sinh trắc học
+        final authNotifier = ref.read(authProvider.notifier);
+        final success = await authNotifier.enableBiometric();
+        
+        if (!success) {
+          _showErrorSnackBar('Không thể bật sinh trắc học');
+          return;
+        }
+        
+        setState(() {
+          _biometricEnabled = true;
+        });
+        
+        _showSuccessSnackBar('Đã bật đăng nhập sinh trắc học');
+      } else {
+        // Tắt sinh trắc học
+        final authNotifier = ref.read(authProvider.notifier);
+        await authNotifier.disableBiometric();
+        
+        setState(() {
+          _biometricEnabled = false;
+        });
+        
+        _showSuccessSnackBar('Đã tắt đăng nhập sinh trắc học');
+      }
+    } catch (e) {
+      print('Error toggling biometric: $e');
+      _showErrorSnackBar('Có lỗi xảy ra: $e');
     }
   }
 
