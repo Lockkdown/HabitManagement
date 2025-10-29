@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart'; // Import for debugPrint
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+// ignore: depend_on_referenced_packages
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/habit_model.dart';
 import '../models/category_model.dart';
@@ -197,40 +198,33 @@ class HabitApiService {
     }
   }
 
+  // ==========================================================
+  // <<< BẮT ĐẦU SỬA HÀM createHabit >>>
+  // ==========================================================
   /// Create a new habit
   Future<HabitModel> createHabit(CreateHabitModel habit) async {
     try {
       final headers = await _getHeaders();
-      debugPrint('Creating habit with headers: $headers'); // Log headers
+      debugPrint('Creating habit with headers: $headers');
       
-      // Tạo bản sao của dữ liệu để chỉnh sửa
-      final jsonData = habit.toJson();
+      // === SỬA LỖI: KHÔNG CẦN jsonData nữa ===
+      // CreateHabitModel.toJson() đã xử lý đúng việc gán List<int>
+      final body = json.encode(habit.toJson()); 
       
-      // Chuyển đổi daysOfWeek và daysOfMonth thành chuỗi JSON
-      if (habit.frequency == 'weekly' && habit.daysOfWeek != null) {
-        jsonData['daysOfWeek'] = json.encode(habit.daysOfWeek);
-        debugPrint('DaysOfWeek (converted): ${jsonData['daysOfWeek']}');
-      } else if (habit.frequency == 'monthly' && habit.daysOfMonth != null) {
-        jsonData['daysOfMonth'] = json.encode(habit.daysOfMonth);
-        debugPrint('DaysOfMonth (converted): ${jsonData['daysOfMonth']}');
-      }
-      
-      debugPrint('Creating habit with data: $jsonData');
-      debugPrint('JSON body: ${json.encode(jsonData)}');
-      
-      // Kiểm tra các trường quan trọng
+      // In ra JSON body (đã sửa)
+      debugPrint('JSON body (Corrected): $body');
       debugPrint('Frequency: ${habit.frequency}');
 
       final response = await http.post(
         Uri.parse('$_baseUrl/api/habit'),
         headers: headers,
-        body: json.encode(jsonData),
+        body: body, // <<< Gửi body đã encode đúng
       );
 
       if (response.statusCode == 201) { // 201 Created
         return HabitModel.fromJson(json.decode(utf8.decode(response.bodyBytes)));
       } else {
-         // Log detailed error from backend if available
+          // Log detailed error from backend if available
           debugPrint('Error creating habit (${response.statusCode}): ${response.body}');
         throw Exception('Lỗi khi tạo thói quen: ${response.statusCode}');
       }
@@ -239,13 +233,13 @@ class HabitApiService {
       throw Exception('Lỗi kết nối: $e');
     }
   }
+  // ==========================================================
+  // <<< KẾT THÚC SỬA HÀM createHabit >>>
+  // ==========================================================
 
-  // ==========================================================
-  // <<< BẮT ĐẦU THAY ĐỔI TẠI ĐÂY >>>
-  // ==========================================================
 
   /// Update a habit
-  Future<void> updateHabit(int id, UpdateHabitModel habit) async { // <-- ĐÃ SỬA TỪ CreateHabitModel
+  Future<void> updateHabit(int id, UpdateHabitModel habit) async { // <-- Đã sửa thành UpdateHabitModel
     try {
       final headers = await _getHeaders();
       
@@ -272,10 +266,6 @@ class HabitApiService {
     }
   }
   
-  // ==========================================================
-  // <<< KẾT THÚC THAY ĐỔI >>>
-  // ==========================================================
-
 
   /// Delete a habit
   Future<void> deleteHabit(int id) async {
@@ -304,13 +294,14 @@ class HabitApiService {
     try {
       final body = <String, dynamic>{};
       if (notes != null) body['notes'] = notes;
-      // Send completedAt in local time ISO8601 format if provided
-      final completionTime = completedAt ?? DateTime.now();
+      
+      // Gửi thời gian đã được chuyển sang UTC (hoặc UTC nếu null)
+      final completionTime = completedAt?.toUtc() ?? DateTime.now().toUtc(); // <<< SỬA: Đảm bảo là UTC
       body['completedAt'] = completionTime.toIso8601String();
 
       final headers = await _getHeaders();
       debugPrint('Completing habit $id with headers: $headers');
-      debugPrint('Completing habit $id with completionTime: $completionTime');
+      debugPrint('Completing habit $id with completionTime (UTC): $completionTime'); // Log giờ UTC
       debugPrint('Completing habit $id with body: ${json.encode(body)}');
 
 
