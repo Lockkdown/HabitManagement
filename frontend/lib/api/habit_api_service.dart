@@ -27,11 +27,11 @@ class HabitApiService {
     
     // Return empty headers if no token (adjust based on your API needs)
     if (token == null) {
-       debugPrint("Warning: No access token found for API request.");
-       return {
-         'Content-Type': 'application/json; charset=UTF-8',
-         'ngrok-skip-browser-warning': 'true',
-       };
+        debugPrint("Warning: No access token found for API request.");
+        return {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'ngrok-skip-browser-warning': 'true',
+        };
     }
     
     final headers = {
@@ -59,11 +59,11 @@ class HabitApiService {
         final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
         return data.map((json) => CategoryModel.fromJson(json)).toList();
       } else {
-         debugPrint('Error getting categories (${response.statusCode}): ${response.body}');
+          debugPrint('Error getting categories (${response.statusCode}): ${response.body}');
         throw Exception('Lỗi khi lấy danh sách danh mục: ${response.statusCode}');
       }
     } catch (e) {
-       debugPrint('Connection error getting categories: $e');
+        debugPrint('Connection error getting categories: $e');
       throw Exception('Lỗi kết nối: $e');
     }
   }
@@ -80,11 +80,11 @@ class HabitApiService {
         final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
         return data.map((json) => CategoryModel.fromJson(json)).toList();
       } else {
-         debugPrint('Error getting default categories (${response.statusCode}): ${response.body}');
+          debugPrint('Error getting default categories (${response.statusCode}): ${response.body}');
         throw Exception('Lỗi khi lấy danh sách danh mục mặc định: ${response.statusCode}');
       }
     } catch (e) {
-       debugPrint('Connection error getting default categories: $e');
+        debugPrint('Connection error getting default categories: $e');
       throw Exception('Lỗi kết nối: $e');
     }
   }
@@ -101,11 +101,11 @@ class HabitApiService {
       if (response.statusCode == 201) { // 201 Created
         return CategoryModel.fromJson(json.decode(utf8.decode(response.bodyBytes)));
       } else {
-         debugPrint('Error creating category (${response.statusCode}): ${response.body}');
+          debugPrint('Error creating category (${response.statusCode}): ${response.body}');
         throw Exception('Lỗi khi tạo danh mục: ${response.statusCode}');
       }
     } catch (e) {
-       debugPrint('Connection error creating category: $e');
+        debugPrint('Connection error creating category: $e');
       throw Exception('Lỗi kết nối: $e');
     }
   }
@@ -120,11 +120,11 @@ class HabitApiService {
       );
 
       if (response.statusCode != 204) { // 204 No Content
-         debugPrint('Error updating category $id (${response.statusCode}): ${response.body}');
+          debugPrint('Error updating category $id (${response.statusCode}): ${response.body}');
         throw Exception('Lỗi khi cập nhật danh mục: ${response.statusCode}');
       }
     } catch (e) {
-       debugPrint('Connection error updating category $id: $e');
+        debugPrint('Connection error updating category $id: $e');
       throw Exception('Lỗi kết nối: $e');
     }
   }
@@ -138,11 +138,11 @@ class HabitApiService {
       );
 
       if (response.statusCode != 204) { // 204 No Content
-         debugPrint('Error deleting category $id (${response.statusCode}): ${response.body}');
+          debugPrint('Error deleting category $id (${response.statusCode}): ${response.body}');
         throw Exception('Lỗi khi xóa danh mục: ${response.statusCode}');
       }
     } catch (e) {
-       debugPrint('Connection error deleting category $id: $e');
+        debugPrint('Connection error deleting category $id: $e');
       throw Exception('Lỗi kết nối: $e');
     }
   }
@@ -168,11 +168,11 @@ class HabitApiService {
         final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
         return data.map((json) => HabitModel.fromJson(json)).toList();
       } else {
-         debugPrint('Error getting habits (${response.statusCode}): ${response.body}');
+          debugPrint('Error getting habits (${response.statusCode}): ${response.body}');
         throw Exception('Lỗi khi lấy danh sách thói quen: ${response.statusCode}');
       }
     } catch (e) {
-       debugPrint('Connection error getting habits: $e');
+        debugPrint('Connection error getting habits: $e');
       throw Exception('Lỗi kết nối: $e');
     }
   }
@@ -188,11 +188,11 @@ class HabitApiService {
       if (response.statusCode == 200) {
         return HabitModel.fromJson(json.decode(utf8.decode(response.bodyBytes)));
       } else {
-         debugPrint('Error getting habit $id (${response.statusCode}): ${response.body}');
+          debugPrint('Error getting habit $id (${response.statusCode}): ${response.body}');
         throw Exception('Lỗi khi lấy thông tin thói quen: ${response.statusCode}');
       }
     } catch (e) {
-       debugPrint('Connection error getting habit $id: $e');
+        debugPrint('Connection error getting habit $id: $e');
       throw Exception('Lỗi kết nối: $e');
     }
   }
@@ -231,38 +231,51 @@ class HabitApiService {
         return HabitModel.fromJson(json.decode(utf8.decode(response.bodyBytes)));
       } else {
          // Log detailed error from backend if available
-         debugPrint('Error creating habit (${response.statusCode}): ${response.body}');
+          debugPrint('Error creating habit (${response.statusCode}): ${response.body}');
         throw Exception('Lỗi khi tạo thói quen: ${response.statusCode}');
       }
     } catch (e) {
-       debugPrint('Connection error creating habit: $e');
+        debugPrint('Connection error creating habit: $e');
       throw Exception('Lỗi kết nối: $e');
     }
   }
 
-  /// Update a habit (This function is already correct)
-  Future<void> updateHabit(int id, CreateHabitModel habit) async { // You might want a specific UpdateHabitDto later
+  // ==========================================================
+  // <<< BẮT ĐẦU THAY ĐỔI TẠI ĐÂY >>>
+  // ==========================================================
+
+  /// Update a habit
+  Future<void> updateHabit(int id, UpdateHabitModel habit) async { // <-- ĐÃ SỬA TỪ CreateHabitModel
     try {
       final headers = await _getHeaders();
+      
+      // Dòng này sẽ tự động gọi hàm toJson() của UpdateHabitModel
+      final body = json.encode(habit.toJson()); 
+      
       debugPrint('Updating habit $id with headers: $headers');
-      debugPrint('Updating habit $id with body: ${json.encode(habit.toJson())}');
+      debugPrint('Updating habit $id with body: $body'); // In ra body đã được chuyển đổi
 
       final response = await http.put(
         Uri.parse('$_baseUrl/api/habit/$id'),
         headers: headers,
-        body: json.encode(habit.toJson()),
+        body: body, // Gửi body đã chuyển đổi
       );
 
       if (response.statusCode != 204) { // 204 No Content
-         debugPrint('Error updating habit $id (${response.statusCode}): ${response.body}');
+          debugPrint('Error updating habit $id (${response.statusCode}): ${response.body}');
         throw Exception('Lỗi khi cập nhật thói quen: ${response.statusCode}');
       }
-       debugPrint('Successfully updated habit $id');
+        debugPrint('Successfully updated habit $id');
     } catch (e) {
-       debugPrint('Connection error updating habit $id: $e');
+        debugPrint('Connection error updating habit $id: $e');
       throw Exception('Lỗi kết nối: $e');
     }
   }
+  
+  // ==========================================================
+  // <<< KẾT THÚC THAY ĐỔI >>>
+  // ==========================================================
+
 
   /// Delete a habit
   Future<void> deleteHabit(int id) async {
@@ -276,12 +289,12 @@ class HabitApiService {
       );
 
       if (response.statusCode != 204) { // 204 No Content
-         debugPrint('Error deleting habit $id (${response.statusCode}): ${response.body}');
+          debugPrint('Error deleting habit $id (${response.statusCode}): ${response.body}');
         throw Exception('Lỗi khi xóa thói quen: ${response.statusCode}');
       }
-       debugPrint('Successfully deleted habit $id');
+        debugPrint('Successfully deleted habit $id');
     } catch (e) {
-       debugPrint('Connection error deleting habit $id: $e');
+        debugPrint('Connection error deleting habit $id: $e');
       throw Exception('Lỗi kết nối: $e');
     }
   }
@@ -309,12 +322,12 @@ class HabitApiService {
 
       // Backend might return 200 OK or 201 Created depending on implementation
       if (response.statusCode != 200 && response.statusCode != 201) {
-         debugPrint('Error completing habit $id (${response.statusCode}): ${response.body}');
+          debugPrint('Error completing habit $id (${response.statusCode}): ${response.body}');
         throw Exception('Lỗi khi đánh dấu hoàn thành thói quen: ${response.statusCode}');
       }
-       debugPrint('Successfully completed habit $id');
+        debugPrint('Successfully completed habit $id');
     } catch (e) {
-       debugPrint('Connection error completing habit $id: $e');
+        debugPrint('Connection error completing habit $id: $e');
       throw Exception('Lỗi kết nối: $e');
     }
   }
@@ -338,11 +351,11 @@ class HabitApiService {
         final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
         return data.map((json) => HabitCompletionModel.fromJson(json)).toList();
       } else {
-         debugPrint('Error getting completions for habit $id (${response.statusCode}): ${response.body}');
+          debugPrint('Error getting completions for habit $id (${response.statusCode}): ${response.body}');
         throw Exception('Lỗi khi lấy lịch sử hoàn thành: ${response.statusCode}');
       }
     } catch (e) {
-       debugPrint('Connection error getting completions for habit $id: $e');
+        debugPrint('Connection error getting completions for habit $id: $e');
       throw Exception('Lỗi kết nối: $e');
     }
   }
