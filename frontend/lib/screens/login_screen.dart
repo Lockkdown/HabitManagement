@@ -101,6 +101,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
   }
 
+  /// Chuyển về Quick Login (khi nhấn "Quay lại tài khoản cũ")
+  void _switchToQuickLogin() {
+    setState(() {
+      _isQuickLogin = true;
+      _emailController.clear();
+      _passwordController.clear();
+    });
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -196,6 +205,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       // Case 3: User thường - không cần 2FA, lưu thông tin và navigate
       if (response.accessToken != null && response.user != null) {
         final storageService = StorageService();
+        
+        // Check xem có phải user mới không (TRƯỚC KHI lưu user info mới)
+        final oldUserId = await storageService.getUserId();
+        final newUserId = response.user!['userId'] ?? '';
+        final isNewUser = oldUserId != null && oldUserId != newUserId;
+        
+        if (isNewUser) {
+          // User mới → Clear biometric flag của user cũ
+          await storageService.setBiometricEnabled(false);
+          debugPrint('LoginScreen: Cleared biometric flag cho user mới (old: $oldUserId, new: $newUserId)');
+        }
         
         // Lưu tokens
         await storageService.saveAccessToken(response.accessToken!);
@@ -701,6 +721,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     TextButton(
                       onPressed: isLoading ? null : _switchToFullLogin,
                       child: const Text('Đăng nhập tài khoản khác'),
+                    ),
+                  ],
+                  
+                  // Link "Quay lại tài khoản cũ" (chỉ hiển thị ở Full Login nếu có saved account)
+                  if (!_isQuickLogin && _savedUsername != null) ...[
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: isLoading ? null : _switchToQuickLogin,
+                      child: const Text('Quay lại tài khoản cũ'),
                     ),
                   ],
                   

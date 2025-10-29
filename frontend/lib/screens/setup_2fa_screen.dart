@@ -32,6 +32,7 @@ class _Setup2FAScreenState extends ConsumerState<Setup2FAScreen> {
   
   bool _isLoading = false;
   bool _isQrCodeExpanded = true;
+  bool _showSecretKey = false;
 
   @override
   void dispose() {
@@ -191,41 +192,78 @@ class _Setup2FAScreenState extends ConsumerState<Setup2FAScreen> {
 
             const SizedBox(height: 24),
 
-            // Secret Key (backup)
+            // Secret Key (backup) - Collapsible
             if (widget.twoFactorResponse.secretKey != null)
               Card(
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                color: Theme.of(context).colorScheme.secondaryContainer,
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Secret Key (sao lưu)',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              widget.twoFactorResponse.secretKey!,
-                              style: const TextStyle(
-                                fontFamily: 'monospace',
-                                fontSize: 12,
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _showSecretKey = !_showSecretKey;
+                          });
+                        },
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Secret Key (sao lưu)',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
                               ),
                             ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.copy, size: 20),
-                            onPressed: _copySecretKey,
-                            tooltip: 'Sao chép',
-                          ),
-                        ],
+                            Icon(
+                              _showSecretKey ? Icons.expand_less : Icons.expand_more,
+                              color: Theme.of(context).colorScheme.onSecondaryContainer,
+                            ),
+                          ],
+                        ),
                       ),
+                      if (_showSecretKey) ...[const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surface,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Theme.of(context).colorScheme.secondary.withOpacity(0.3),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  widget.twoFactorResponse.secretKey!,
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                    letterSpacing: 1,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.copy, size: 20),
+                                onPressed: _copySecretKey,
+                                tooltip: 'Sao chép',
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '⚠️ Lưu Secret Key ở nơi an toàn. Bạn sẽ cần nó nếu mất điện thoại.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.onSecondaryContainer.withOpacity(0.7),
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

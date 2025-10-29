@@ -59,7 +59,7 @@ public class AuthService
             FullName = registerDto.FullName,
             PhoneNumber = registerDto.PhoneNumber,
             DateOfBirth = registerDto.DateOfBirth,
-            ThemePreference = "light", // Mặc định
+            ThemePreference = "dark", // Mặc định
             LanguageCode = "vi" // Mặc định Tiếng Việt
         };
 
