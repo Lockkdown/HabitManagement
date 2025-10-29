@@ -29,57 +29,192 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
   List<HabitModel>? _habits;
   Map<int, List<dynamic>> _habitCompletions = {};
   bool _isLoading = true;
+  bool _isLoadingCompletions = false; // Trạng thái tải completion data
   String? _error;
+  
+  // Cache để tránh tải lại dữ liệu không cần thiết
+  DateTime? _lastLoadTime;
+  static const Duration _cacheTimeout = Duration(minutes: 5);
+  
+  // Theo dõi auth state để reset cache khi cần
+  AuthStatus? _lastAuthStatus;
 
   @override
   void initState() {
     super.initState();
-    _loadStatistics();
+    // Khởi tạo auth status
+    _lastAuthStatus = ref.read(authProvider).status;
+    
+    // Delay một chút để đảm bảo auth provider đã được khởi tạo đúng
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadStatistics();
+      }
+    });
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    
+    // Chỉ kiểm tra auth state thay vì tự động reload
+    final currentAuthStatus = ref.read(authProvider).status;
+    print('didChangeDependencies - Auth status: $_lastAuthStatus -> $currentAuthStatus'); // Debug log
+    
+    // Nếu auth status thay đổi (đặc biệt là từ unauthenticated -> authenticated)
+    if (_lastAuthStatus != currentAuthStatus) {
+      _lastAuthStatus = currentAuthStatus;
+      
+      // Reset cache và reload nếu vừa đăng nhập
+      if (currentAuthStatus == AuthStatus.authenticated) {
+        print('Auth status changed to authenticated, reloading data...'); // Debug log
+        _resetCache();
+        // Delay một chút để đảm bảo auth state đã ổn định
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) {
+            _loadStatistics();
+          }
+        });
+      } else if (currentAuthStatus == AuthStatus.unauthenticated) {
+        // Xóa dữ liệu khi đăng xuất
+        if (mounted) {
+          setState(() {
+            _resetCache();
+            _error = 'Vui lòng đăng nhập để xem thống kê';
+            _isLoading = false;
+          });
+        }
+      }
+    }
+  }
 
+  /// Reset cache khi cần thiết (ví dụ: sau khi đăng nhập lại)
+  void _resetCache() {
+    _lastLoadTime = null;
+    _overviewStats = null;
+    _heatmapData = null;
+    _habits = null;
+    _habitCompletions = {};
+  }
+
+  bool _shouldRefreshData() {
+    if (_lastLoadTime == null) return true;
+    if (_overviewStats == null || _habits == null) return true;
+    return DateTime.now().difference(_lastLoadTime!) > _cacheTimeout;
+  }
 
   Future<void> _loadStatistics() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+    // Kiểm tra auth state trước
+    final authState = ref.read(authProvider);
+    print('Auth state status: ${authState.status}'); // Debug log
+    
+    // Nếu đang loading, chờ một chút rồi thử lại
+    if (authState.status == AuthStatus.loading) {
+      print('Auth state is loading, waiting...');
+      await Future.delayed(const Duration(milliseconds: 500));
+      final newAuthState = ref.read(authProvider);
+      if (newAuthState.status != AuthStatus.authenticated) {
+        if (mounted) {
+          setState(() {
+            _error = 'Vui lòng đăng nhập để xem thống kê';
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+    } else if (authState.status != AuthStatus.authenticated) {
+      if (mounted) {
+        setState(() {
+          _error = 'Vui lòng đăng nhập để xem thống kê';
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    // Kiểm tra cache trước khi tải
+    if (!_shouldRefreshData() && !_isLoading) {
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
 
     try {
-      final authState = ref.read(authProvider);
-      if (authState.status == AuthStatus.authenticated) {
-        // Fetch overview statistics and heatmap data
-        final overview = await _statisticsService.getOverviewStatistics();
-        final heatmap = await _statisticsService.getHeatmapData();
-        
-        // Fetch all habits for the new dashboard
-        final habits = await _habitService.getHabits();
-        
-        // Fetch completion data for each habit
-        Map<int, List<dynamic>> completions = {};
-        for (final habit in habits) {
-          try {
-            final habitCompletions = await _completionService.getHabitCompletions(habit.id);
-            completions[habit.id] = habitCompletions;
-          } catch (e) {
-            // If we can't get completions for a habit, use empty list
-            completions[habit.id] = [];
-          }
-        }
-        
+      print('Starting to load statistics...'); // Debug log
+      
+      // Tải song song các API calls cơ bản trước
+      final basicDataFutures = await Future.wait([
+        _statisticsService.getOverviewStatistics(),
+        _statisticsService.getHeatmapData(),
+        _habitService.getHabits(),
+      ]);
+      
+      final overview = basicDataFutures[0] as Map<String, dynamic>;
+      final heatmap = basicDataFutures[1] as List<dynamic>;
+      final habits = basicDataFutures[2] as List<HabitModel>;
+      
+      print('Basic data loaded successfully'); // Debug log
+      
+      // Cập nhật UI ngay với dữ liệu cơ bản để người dùng thấy kết quả nhanh
+      if (mounted) {
         setState(() {
           _overviewStats = overview;
           _heatmapData = heatmap;
           _habits = habits;
-          _habitCompletions = completions;
-          _isLoading = false;
+          _habitCompletions = {}; // Khởi tạo rỗng trước
+          _isLoading = false; // Đánh dấu đã tải xong phần cơ bản
+          _lastLoadTime = DateTime.now(); // Cập nhật thời gian cache
         });
       }
+      
+      // Tải completion data song song cho tất cả thói quen
+      if (habits.isNotEmpty && mounted) {
+        setState(() {
+          _isLoadingCompletions = true;
+        });
+        
+        final completionFutures = habits.map((habit) async {
+          try {
+            final habitCompletions = await _completionService.getHabitCompletions(habit.id);
+            return MapEntry(habit.id, habitCompletions);
+          } catch (e) {
+            // Nếu không tải được completion cho thói quen nào, dùng list rỗng
+            print('Lỗi tải completion cho habit ${habit.id}: $e');
+            return MapEntry(habit.id, <dynamic>[]);
+          }
+        }).toList();
+        
+        // Đợi tất cả completion data tải xong
+        final completionResults = await Future.wait(completionFutures);
+        
+        // Cập nhật completion data
+        final completions = <int, List<dynamic>>{};
+        for (final entry in completionResults) {
+          completions[entry.key] = entry.value;
+        }
+        
+        // Cập nhật UI với completion data
+        if (mounted) {
+          setState(() {
+            _habitCompletions = completions;
+            _isLoadingCompletions = false;
+          });
+        }
+      }
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+      print('Lỗi tải thống kê: $e');
+      if (mounted) {
+        setState(() {
+          _error = 'Không thể tải dữ liệu thống kê. Vui lòng thử lại.';
+          _isLoading = false;
+          _isLoadingCompletions = false;
+        });
+      }
     }
   }
 
@@ -168,6 +303,26 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final stats = _overviewStats!;
+    
+    // Lấy kích thước màn hình để tính toán responsive
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    
+    // Tính toán childAspectRatio dựa trên kích thước màn hình
+    double aspectRatio;
+    if (screenWidth < 360) {
+      // Màn hình nhỏ (< 360dp)
+      aspectRatio = 1.8;
+    } else if (screenWidth < 400) {
+      // Màn hình trung bình (360-400dp)
+      aspectRatio = 1.6;
+    } else {
+      // Màn hình lớn (> 400dp)
+      aspectRatio = 1.5;
+    }
+    
+    // Tính toán spacing dựa trên kích thước màn hình
+    final spacing = screenWidth < 360 ? 8.0 : 12.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,18 +388,18 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
         ),
         const SizedBox(height: 24),
         
-        // Enhanced stats grid with fixed aspect ratio
+        // Enhanced stats grid with responsive aspect ratio
         GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisCount: 2,
-          crossAxisSpacing: 12, // Giảm từ 16 xuống 12
-          mainAxisSpacing: 12, // Giảm từ 16 xuống 12
-          childAspectRatio: 1.5, // Tăng từ 1.4 lên 1.5 để tạo thêm không gian
+          crossAxisSpacing: spacing, // Sử dụng spacing responsive
+          mainAxisSpacing: spacing, // Sử dụng spacing responsive
+          childAspectRatio: aspectRatio, // Sử dụng aspectRatio responsive
           children: [
             _buildEnhancedStatCard(
               title: 'Hoàn thành',
-              value: '${stats['completionRate']}%',
+              value: '${(stats['completionRate'] as num).toInt()}%',
               icon: Icons.check_circle_outline,
               gradient: const LinearGradient(
                 colors: [Color(0xFF4CAF50), Color(0xFF45A049)],
@@ -296,6 +451,20 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     required Gradient gradient,
     required bool isDark,
   }) {
+    // Lấy kích thước màn hình để tính toán responsive
+    final screenWidth = MediaQuery.of(context).size.width;
+    
+    // Tính toán kích thước dựa trên màn hình
+    final cardPadding = screenWidth < 360 ? 8.0 : 12.0;
+    final iconSize = screenWidth < 360 ? 14.0 : 16.0;
+    final iconPadding = screenWidth < 360 ? 4.0 : 6.0;
+    final valueFontSize = screenWidth < 360 ? 18.0 : 20.0;
+    final titleFontSize = screenWidth < 360 ? 9.0 : 10.0;
+    final subtitleFontSize = screenWidth < 360 ? 8.0 : 9.0;
+    final borderRadius = screenWidth < 360 ? 8.0 : 10.0;
+    final cardHeight = screenWidth < 360 ? 70.0 : 80.0;
+    final spacingHeight = screenWidth < 360 ? 4.0 : 6.0;
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
@@ -334,27 +503,27 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           onTap: () => HapticFeedback.lightImpact(),
           borderRadius: BorderRadius.circular(24),
           child: Container(
-            padding: const EdgeInsets.all(12), // Giảm từ 16 xuống 12
-            height: 80, // Thêm height cố định để kiểm soát kích thước
+            padding: EdgeInsets.all(cardPadding), // Sử dụng padding responsive
+            height: cardHeight, // Sử dụng height responsive
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              mainAxisSize: MainAxisSize.min, // Thêm để giảm chiều cao
+              mainAxisSize: MainAxisSize.min,
               children: [
                 // Icon with gradient background
                 Container(
-                  padding: const EdgeInsets.all(6), // Giảm từ 8 xuống 6
+                  padding: EdgeInsets.all(iconPadding), // Sử dụng padding responsive
                   decoration: BoxDecoration(
                     gradient: gradient,
-                    borderRadius: BorderRadius.circular(10), // Giảm từ 12 xuống 10
+                    borderRadius: BorderRadius.circular(borderRadius), // Sử dụng borderRadius responsive
                   ),
                   child: Icon(
                     icon,
                     color: Colors.white,
-                    size: 16, // Giảm từ 18 xuống 16
+                    size: iconSize, // Sử dụng iconSize responsive
                   ),
                 ),
-                const SizedBox(height: 6), // Giảm từ 8 xuống 6
+                SizedBox(height: spacingHeight), // Sử dụng spacing responsive
                 // Value and title
                 Expanded( // Thay Flexible bằng Expanded
                   child: Column(
@@ -364,7 +533,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                       Text(
                         value,
                         style: TextStyle(
-                          fontSize: 20, // Giảm từ 22 xuống 20
+                          fontSize: valueFontSize, // Sử dụng fontSize responsive
                           fontWeight: FontWeight.w800,
                           color: isDark ? Colors.white : Colors.black87,
                           letterSpacing: -0.5,
@@ -375,7 +544,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                       Text(
                         title,
                         style: TextStyle(
-                          fontSize: 10, // Giảm từ 11 xuống 10
+                          fontSize: titleFontSize, // Sử dụng fontSize responsive
                           fontWeight: FontWeight.w600,
                           color: isDark ? Colors.grey[400] : Colors.grey[600],
                         ),
@@ -386,7 +555,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                         Text(
                           subtitle,
                           style: TextStyle(
-                            fontSize: 9, // Giảm từ 10 xuống 9
+                            fontSize: subtitleFontSize, // Sử dụng fontSize responsive
                             color: isDark ? Colors.grey[500] : Colors.grey[500],
                           ),
                           maxLines: 1,

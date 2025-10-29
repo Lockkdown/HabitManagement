@@ -71,10 +71,52 @@ public class StatisticsController : ControllerBase
                     
                     if (startOfPeriod <= endOfPeriod)
                     {
-                        var daysInPeriod = (endOfPeriod - startOfPeriod).Days + 1;
-                        totalPossibleCompletions += daysInPeriod;
+                        // Tính số lần có thể hoàn thành dựa trên tần suất
+                        int possibleCompletions = 0;
                         
-                        // Đếm số ngày thực tế hoàn thành
+                        switch (habit.Frequency.ToLower())
+                        {
+                            case "daily":
+                                possibleCompletions = (endOfPeriod - startOfPeriod).Days + 1;
+                                break;
+                            case "weekly":
+                                // Tính số tuần trong khoảng thời gian
+                                var weeks = 0;
+                                var checkDate = startOfPeriod;
+                                while (checkDate <= endOfPeriod)
+                                {
+                                    if (checkDate.DayOfWeek == habitStartDate.DayOfWeek)
+                                    {
+                                        weeks++;
+                                    }
+                                    checkDate = checkDate.AddDays(1);
+                                }
+                                possibleCompletions = weeks;
+                                break;
+                            case "monthly":
+                                // Tính số tháng trong khoảng thời gian
+                                var months = 0;
+                                var monthCheck = startOfPeriod;
+                                while (monthCheck <= endOfPeriod)
+                                {
+                                    if (monthCheck.Day == habitStartDate.Day || 
+                                        (habitStartDate.Day > DateTime.DaysInMonth(monthCheck.Year, monthCheck.Month) && 
+                                         monthCheck.Day == DateTime.DaysInMonth(monthCheck.Year, monthCheck.Month)))
+                                    {
+                                        months++;
+                                    }
+                                    monthCheck = monthCheck.AddDays(1);
+                                }
+                                possibleCompletions = months;
+                                break;
+                            default:
+                                possibleCompletions = (endOfPeriod - startOfPeriod).Days + 1;
+                                break;
+                        }
+                        
+                        totalPossibleCompletions += possibleCompletions;
+                        
+                        // Đếm số lần thực tế hoàn thành
                         var completionsInMonth = habit.Completions
                             .Where(c => c.CompletedAt.Date >= currentMonth && c.CompletedAt.Date <= currentDate)
                             .Count();
@@ -85,6 +127,8 @@ public class StatisticsController : ControllerBase
                 if (totalPossibleCompletions > 0)
                 {
                     completionRate = (double)totalActualCompletions / totalPossibleCompletions * 100;
+                    // Đảm bảo không vượt quá 100%
+                    completionRate = Math.Min(completionRate, 100.0);
                 }
             }
 

@@ -1,15 +1,19 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/auth_api_service.dart';
 import '../models/two_factor_login_response_model.dart';
 import '../services/storage_service.dart';
+import '../services/auth_provider.dart';
+import '../services/auth_state.dart';
+import '../models/user_model.dart';
 import '../utils/jwt_decoder.dart';
 import '../utils/app_notification.dart';
 import 'admin_dashboard_screen.dart';
 
 /// Màn hình setup 2FA lần đầu (scan QR code + verify OTP)
-class Setup2FAScreen extends StatefulWidget {
+class Setup2FAScreen extends ConsumerStatefulWidget {
   final TwoFactorLoginResponseModel twoFactorResponse;
 
   const Setup2FAScreen({
@@ -18,10 +22,10 @@ class Setup2FAScreen extends StatefulWidget {
   });
 
   @override
-  State<Setup2FAScreen> createState() => _Setup2FAScreenState();
+  ConsumerState<Setup2FAScreen> createState() => _Setup2FAScreenState();
 }
 
-class _Setup2FAScreenState extends State<Setup2FAScreen> {
+class _Setup2FAScreenState extends ConsumerState<Setup2FAScreen> {
   final AuthApiService _authApiService = AuthApiService();
   final StorageService _storageService = StorageService();
   final TextEditingController _otpController = TextEditingController();
@@ -63,6 +67,18 @@ class _Setup2FAScreenState extends State<Setup2FAScreen> {
         themePreference: authResponse.user.themePreference,
         languageCode: authResponse.user.languageCode,
       );
+
+      // CẬP NHẬT AUTHPROVIDER STATE - Quan trọng!
+      final authNotifier = ref.read(authProvider.notifier);
+      final userModel = UserModel(
+        userId: authResponse.user.userId,
+        username: authResponse.user.username,
+        email: authResponse.user.email,
+        fullName: authResponse.user.fullName,
+        themePreference: authResponse.user.themePreference,
+        languageCode: authResponse.user.languageCode,
+      );
+      authNotifier.state = AuthState.authenticated(userModel);
 
       if (!mounted) return;
 
