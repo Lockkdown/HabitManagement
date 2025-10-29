@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/app_notification.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import '../services/auth_provider.dart';
+import '../services/auth_state.dart';
 import '../services/biometric_service.dart';
 import '../services/storage_service.dart';
+import '../models/user_model.dart';
 import '../api/auth_api_service.dart';
 import 'register_screen.dart';
 import 'waiting_verification_screen.dart';
@@ -209,6 +211,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           languageCode: response.user!['languageCode'] ?? 'vi',
         );
 
+        // CẬP NHẬT AUTHPROVIDER STATE - Quan trọng!
+        final authNotifier = ref.read(authProvider.notifier);
+        final userModel = UserModel(
+          userId: response.user!['userId'] ?? '',
+          username: response.user!['username'] ?? '',
+          email: response.user!['email'] ?? '',
+          fullName: response.user!['fullName'] ?? '',
+          themePreference: response.user!['themePreference'] ?? 'dark',
+          languageCode: response.user!['languageCode'] ?? 'vi',
+        );
+        authNotifier.state = AuthState.authenticated(userModel);
+
         if (!mounted) return;
 
         // Hiển thị thông báo thành công
@@ -318,6 +332,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           themePreference: response.user!['themePreference'] ?? 'dark',
           languageCode: response.user!['languageCode'] ?? 'vi',
         );
+
+        // CẬP NHẬT AUTHPROVIDER STATE - Quan trọng!
+        final authNotifier = ref.read(authProvider.notifier);
+        final userModel = UserModel(
+          userId: response.user!['userId'] ?? '',
+          username: response.user!['username'] ?? '',
+          email: response.user!['email'] ?? '',
+          fullName: response.user!['fullName'] ?? '',
+          themePreference: response.user!['themePreference'] ?? 'dark',
+          languageCode: response.user!['languageCode'] ?? 'vi',
+        );
+        authNotifier.state = AuthState.authenticated(userModel);
 
         if (!mounted) return;
 

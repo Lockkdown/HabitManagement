@@ -4,17 +4,14 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System; // Thêm using System
-using System.Collections.Generic; // Thêm using
-using System.Linq; // Thêm using
-using System.Threading.Tasks; // Thêm using
-using Microsoft.Extensions.Logging; // Thêm using ILogger
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace backend.Controllers;
 
-/// <summary>
-/// Controller xử lý các API endpoints liên quan đến thống kê thói quen.
-/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
@@ -34,9 +31,6 @@ public class StatisticsController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>
-    /// Lấy thống kê tổng quan của người dùng
-    /// </summary>
     [HttpGet("overview")]
     public async Task<IActionResult> GetOverviewStatistics()
     {
@@ -44,12 +38,10 @@ public class StatisticsController : ControllerBase
         {
             var userId = _userManager.GetUserId(User);
             if (string.IsNullOrEmpty(userId))
-            {
                 return Unauthorized();
-            }
 
             var habits = await _context.Habits
-                .Include(h => h.CompletionDates) // <<< SỬA: Completions -> CompletionDates
+                .Include(h => h.CompletionDates)
                 .Where(h => h.UserId == userId && h.IsActive)
                 .ToListAsync();
 
@@ -58,19 +50,18 @@ public class StatisticsController : ControllerBase
             var currentMonth = new DateTime(currentDate.Year, currentDate.Month, 1);
             var daysInMonth = DateTime.DaysInMonth(currentDate.Year, currentDate.Month);
 
-            // Tính % hoàn thành trung bình trong tháng hiện tại
-            var completionRate = 0.0;
+            double completionRate = 0.0;
+
             if (totalHabits > 0)
             {
-                var totalPossibleCompletionsInMonth = 0.0; // Dùng double để chia chính xác
-                var totalActualCompletionsInMonth = 0;
+                double totalPossibleCompletionsInMonth = 0.0;
+                int totalActualCompletionsInMonth = 0;
 
                 foreach (var habit in habits)
                 {
                     var habitStartDate = habit.StartDate.Date;
-                    var habitEndDate = habit.EndDate?.Date ?? currentDate; // Ngày kết thúc hiệu lực là hôm nay nếu null
+                    var habitEndDate = habit.EndDate?.Date ?? currentDate;
 
-                    // Chỉ tính những ngày trong tháng hiện tại mà habit còn hiệu lực
                     var firstDayOfMonth = currentMonth;
                     var lastDayOfMonth = currentMonth.AddMonths(1).AddDays(-1);
 
@@ -79,32 +70,69 @@ public class StatisticsController : ControllerBase
 
                     if (periodStart <= periodEnd)
                     {
-                         // Đếm số ngày habit cần thực hiện trong khoảng thời gian này của tháng
-                         // (Logic này cần được cải thiện để chính xác với weekly/monthly)
-                         // Tạm tính dựa trên số ngày cho đơn giản
-                         var daysActiveInMonth = (periodEnd - periodStart).Days + 1;
-                         totalPossibleCompletionsInMonth += daysActiveInMonth; // Tạm cộng dồn số ngày
+                        // Tính số lần có thể hoàn thành dựa trên tần suất
+                        int possibleCompletions = 0;
 
-                         // Đếm số lần hoàn thành thực tế trong tháng
-                         var completionsInMonth = habit.CompletionDates // <<< SỬA: Completions -> CompletionDates
-                             .Count(c => c.CompletedAt.Date >= firstDayOfMonth && c.CompletedAt.Date <= lastDayOfMonth);
-                         totalActualCompletionsInMonth += completionsInMonth;
+                        switch (habit.Frequency?.ToLower())
+                        {
+                            case "daily":
+                                possibleCompletions = (periodEnd - periodStart).Days + 1;
+                                break;
+
+                            case "weekly":
+                                var weeks = 0;
+                                var checkDate = periodStart;
+                                while (checkDate <= periodEnd)
+                                {
+                                    if (checkDate.DayOfWeek == habitStartDate.DayOfWeek)
+                                        weeks++;
+                                    checkDate = checkDate.AddDays(1);
+                                }
+                                possibleCompletions = weeks;
+                                break;
+
+                            case "monthly":
+                                var months = 0;
+                                var monthCheck = periodStart;
+                                while (monthCheck <= periodEnd)
+                                {
+                                    if (monthCheck.Day == habitStartDate.Day ||
+                                        (habitStartDate.Day > DateTime.DaysInMonth(monthCheck.Year, monthCheck.Month)
+                                         && monthCheck.Day == DateTime.DaysInMonth(monthCheck.Year, monthCheck.Month)))
+                                    {
+                                        months++;
+                                    }
+                                    monthCheck = monthCheck.AddDays(1);
+                                }
+                                possibleCompletions = months;
+                                break;
+
+                            default:
+                                possibleCompletions = (periodEnd - periodStart).Days + 1;
+                                break;
+                        }
+
+                        totalPossibleCompletionsInMonth += possibleCompletions;
+
+                        var completionsInMonth = habit.CompletionDates
+                            .Count(c => c.CompletedAt.Date >= firstDayOfMonth && c.CompletedAt.Date <= lastDayOfMonth);
+
+                        totalActualCompletionsInMonth += completionsInMonth;
                     }
                 }
 
                 if (totalPossibleCompletionsInMonth > 0)
                 {
                     completionRate = (double)totalActualCompletionsInMonth / totalPossibleCompletionsInMonth * 100;
+                    completionRate = Math.Min(completionRate, 100.0);
                 }
             }
 
-            // Tính streak hiện tại và dài nhất (dựa trên tất cả habit)
             var currentStreak = CalculateCurrentStreak(habits, currentDate);
             var longestStreak = CalculateLongestStreak(habits);
 
-            // Tính số ngày hoạt động trong tháng (có ít nhất 1 habit hoàn thành)
             var activeDaysInMonth = habits
-                .SelectMany(h => h.CompletionDates) // <<< SỬA: Completions -> CompletionDates
+                .SelectMany(h => h.CompletionDates)
                 .Where(c => c.CompletedAt.Date >= currentMonth && c.CompletedAt.Date <= currentDate)
                 .Select(c => c.CompletedAt.Date)
                 .Distinct()
@@ -129,9 +157,6 @@ public class StatisticsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Lấy dữ liệu heatmap cho tất cả thói quen
-    /// </summary>
     [HttpGet("heatmap")]
     public async Task<IActionResult> GetHeatmapData([FromQuery] int days = 365)
     {
@@ -139,15 +164,13 @@ public class StatisticsController : ControllerBase
         {
             var userId = _userManager.GetUserId(User);
             if (string.IsNullOrEmpty(userId))
-            {
                 return Unauthorized();
-            }
 
             var endDate = DateTime.UtcNow.Date;
             var startDate = endDate.AddDays(-days + 1);
 
             var habits = await _context.Habits
-                .Include(h => h.CompletionDates) // <<< SỬA: Completions -> CompletionDates
+                .Include(h => h.CompletionDates)
                 .Include(h => h.Category)
                 .Where(h => h.UserId == userId && h.IsActive)
                 .ToListAsync();
@@ -157,7 +180,7 @@ public class StatisticsController : ControllerBase
                 HabitId = habit.Id,
                 HabitName = habit.Name,
                 Description = habit.Description,
-                Category = new // Kiểm tra null cho Category
+                Category = new
                 {
                     Id = habit.Category?.Id ?? 0,
                     Name = habit.Category?.Name ?? "N/A",
@@ -176,9 +199,6 @@ public class StatisticsController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Lấy dữ liệu chi tiết cho một thói quen cụ thể
-    /// </summary>
     [HttpGet("habit/{habitId}/details")]
     public async Task<IActionResult> GetHabitDetails(int habitId, [FromQuery] int days = 365)
     {
@@ -186,19 +206,15 @@ public class StatisticsController : ControllerBase
         {
             var userId = _userManager.GetUserId(User);
             if (string.IsNullOrEmpty(userId))
-            {
                 return Unauthorized();
-            }
 
             var habit = await _context.Habits
-                .Include(h => h.CompletionDates) // <<< SỬA: Completions -> CompletionDates
+                .Include(h => h.CompletionDates)
                 .Include(h => h.Category)
                 .FirstOrDefaultAsync(h => h.Id == habitId && h.UserId == userId);
 
             if (habit == null)
-            {
                 return NotFound(new { message = "Không tìm thấy thói quen" });
-            }
 
             var endDate = DateTime.UtcNow.Date;
             var startDate = endDate.AddDays(-days + 1);
@@ -206,14 +222,14 @@ public class StatisticsController : ControllerBase
             var completionData = GenerateHeatmapData(habit, startDate, endDate);
             var currentStreak = CalculateHabitCurrentStreak(habit, endDate);
             var longestStreak = CalculateHabitLongestStreak(habit);
-            var totalCompletions = habit.CompletionDates.Count; // <<< SỬA: Completions -> CompletionDates
+            var totalCompletions = habit.CompletionDates.Count;
 
             var details = new
             {
                 HabitId = habit.Id,
                 HabitName = habit.Name,
                 Description = habit.Description,
-                Category = new // Kiểm tra null cho Category
+                Category = new
                 {
                     Id = habit.Category?.Id ?? 0,
                     Name = habit.Category?.Name ?? "N/A",
@@ -237,11 +253,10 @@ public class StatisticsController : ControllerBase
 
     #region Private Helper Methods
 
-    // Helper tính streak hiện tại (dựa trên tất cả habit)
     private int CalculateCurrentStreak(List<Habit> habits, DateTime currentDate)
     {
         var allCompletionDates = habits
-            .SelectMany(h => h.CompletionDates) // <<< SỬA: Completions -> CompletionDates
+            .SelectMany(h => h.CompletionDates)
             .Select(c => c.CompletedAt.Date)
             .Distinct()
             .OrderByDescending(d => d)
@@ -253,10 +268,8 @@ public class StatisticsController : ControllerBase
         var streak = 0;
         var checkDate = currentDate;
 
-        // Bỏ qua ngày hôm nay nếu chưa hoàn thành habit nào
-        if (!allCompletionDates.Contains(checkDate)) {
-             checkDate = checkDate.AddDays(-1); // Bắt đầu kiểm tra từ hôm qua
-        }
+        if (!allCompletionDates.Contains(checkDate))
+            checkDate = checkDate.AddDays(-1);
 
         while (allCompletionDates.Contains(checkDate))
         {
@@ -267,11 +280,10 @@ public class StatisticsController : ControllerBase
         return streak;
     }
 
-    // Helper tính streak dài nhất (dựa trên tất cả habit)
     private int CalculateLongestStreak(List<Habit> habits)
     {
         var allCompletionDates = habits
-            .SelectMany(h => h.CompletionDates) // <<< SỬA: Completions -> CompletionDates
+            .SelectMany(h => h.CompletionDates)
             .Select(c => c.CompletedAt.Date)
             .Distinct()
             .OrderBy(d => d)
@@ -281,30 +293,24 @@ public class StatisticsController : ControllerBase
             return 0;
 
         var longestStreak = 0;
-        var currentStreak = 0; // Khởi tạo là 0
+        var currentStreak = 0;
 
         for (int i = 0; i < allCompletionDates.Count; i++)
         {
-             // Bắt đầu streak mới hoặc ngày đầu tiên
             if (i == 0 || allCompletionDates[i] != allCompletionDates[i - 1].AddDays(1))
-            {
-                 currentStreak = 1;
-            }
-             // Tiếp tục streak
+                currentStreak = 1;
             else
-            {
                 currentStreak++;
-            }
-             longestStreak = Math.Max(longestStreak, currentStreak);
+
+            longestStreak = Math.Max(longestStreak, currentStreak);
         }
 
         return longestStreak;
     }
 
-     // Helper tính streak hiện tại cho 1 habit
     private int CalculateHabitCurrentStreak(Habit habit, DateTime currentDate)
     {
-        var completionDates = habit.CompletionDates // <<< SỬA: Completions -> CompletionDates
+        var completionDates = habit.CompletionDates
             .Select(c => c.CompletedAt.Date)
             .Distinct()
             .OrderByDescending(d => d)
@@ -316,11 +322,8 @@ public class StatisticsController : ControllerBase
         var streak = 0;
         var checkDate = currentDate;
 
-         // Bỏ qua ngày hôm nay nếu chưa hoàn thành
-        if (!completionDates.Contains(checkDate)) {
-             checkDate = checkDate.AddDays(-1);
-        }
-
+        if (!completionDates.Contains(checkDate))
+            checkDate = checkDate.AddDays(-1);
 
         while (completionDates.Contains(checkDate))
         {
@@ -331,10 +334,9 @@ public class StatisticsController : ControllerBase
         return streak;
     }
 
-    // Helper tính streak dài nhất cho 1 habit
     private int CalculateHabitLongestStreak(Habit habit)
     {
-        var completionDates = habit.CompletionDates // <<< SỬA: Completions -> CompletionDates
+        var completionDates = habit.CompletionDates
             .Select(c => c.CompletedAt.Date)
             .Distinct()
             .OrderBy(d => d)
@@ -344,49 +346,43 @@ public class StatisticsController : ControllerBase
             return 0;
 
         var longestStreak = 0;
-        var currentStreak = 0; // Khởi tạo là 0
+        var currentStreak = 0;
 
         for (int i = 0; i < completionDates.Count; i++)
         {
-             if (i == 0 || completionDates[i] != completionDates[i - 1].AddDays(1))
-            {
-                 currentStreak = 1;
-            }
+            if (i == 0 || completionDates[i] != completionDates[i - 1].AddDays(1))
+                currentStreak = 1;
             else
-            {
                 currentStreak++;
-            }
-             longestStreak = Math.Max(longestStreak, currentStreak);
+
+            longestStreak = Math.Max(longestStreak, currentStreak);
         }
 
         return longestStreak;
     }
 
-     // Helper tạo dữ liệu heatmap cho 1 habit
     private List<object> GenerateHeatmapData(Habit habit, DateTime startDate, DateTime endDate)
     {
-        // Lấy ngày hoàn thành trong khoảng thời gian yêu cầu
-        var completionDates = habit.CompletionDates // <<< SỬA: Completions -> CompletionDates
-             .Where(c => c.CompletedAt.Date >= startDate && c.CompletedAt.Date <= endDate)
+        var completionDates = habit.CompletionDates
+            .Where(c => c.CompletedAt.Date >= startDate && c.CompletedAt.Date <= endDate)
             .Select(c => c.CompletedAt.Date)
-            .ToHashSet(); // Dùng HashSet để kiểm tra nhanh
+            .ToHashSet();
 
         var heatmapData = new List<object>();
         var currentDate = startDate;
 
         while (currentDate <= endDate)
         {
-             // Chỉ thêm dữ liệu nếu ngày này >= ngày bắt đầu của habit
-             if (currentDate >= habit.StartDate.Date && (!habit.EndDate.HasValue || currentDate <= habit.EndDate.Value.Date))
-             {
-                 heatmapData.Add(new
-                 {
-                     Date = currentDate.ToString("yyyy-MM-dd"),
-                     IsCompleted = completionDates.Contains(currentDate),
-                     // Intensity có thể phức tạp hơn nếu bạn muốn thể hiện mức độ hoàn thành
-                     Intensity = completionDates.Contains(currentDate) ? 1 : 0
-                 });
-             }
+            if (currentDate >= habit.StartDate.Date &&
+                (!habit.EndDate.HasValue || currentDate <= habit.EndDate.Value.Date))
+            {
+                heatmapData.Add(new
+                {
+                    Date = currentDate.ToString("yyyy-MM-dd"),
+                    IsCompleted = completionDates.Contains(currentDate),
+                    Intensity = completionDates.Contains(currentDate) ? 1 : 0
+                });
+            }
 
             currentDate = currentDate.AddDays(1);
         }

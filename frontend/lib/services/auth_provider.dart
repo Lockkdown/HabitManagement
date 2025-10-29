@@ -35,14 +35,17 @@ class AuthNotifier extends Notifier<AuthState> {
     // Kiểm tra trạng thái đăng nhập khi khởi tạo
     _checkAuthStatus();
     
-    return AuthState.initial();
+    // Bắt đầu với trạng thái loading thay vì initial
+    return AuthState.loading();
   }
 
   /// Kiểm tra xem người dùng đã đăng nhập chưa
   /// Được gọi khi app khởi động
   Future<void> _checkAuthStatus() async {
+    print('AuthProvider: Bắt đầu kiểm tra trạng thái đăng nhập...');
     try {
       final isLoggedIn = await _storageService.isLoggedIn();
+      print('AuthProvider: isLoggedIn = $isLoggedIn');
 
       if (isLoggedIn) {
         // Lấy thông tin user từ storage
@@ -52,6 +55,8 @@ class AuthNotifier extends Notifier<AuthState> {
         final fullName = await _storageService.getFullName();
         final themePreference = await _storageService.getThemePreference();
         final languageCode = await _storageService.getLanguageCode();
+
+        print('AuthProvider: User data - userId: $userId, username: $username, email: $email');
 
         if (userId != null &&
             username != null &&
@@ -66,14 +71,18 @@ class AuthNotifier extends Notifier<AuthState> {
             languageCode: languageCode ?? 'vi',
           );
 
+          print('AuthProvider: Đặt trạng thái authenticated');
           state = AuthState.authenticated(user);
         } else {
+          print('AuthProvider: Thiếu thông tin user, đặt trạng thái unauthenticated');
           state = AuthState.unauthenticated();
         }
       } else {
+        print('AuthProvider: Chưa đăng nhập, đặt trạng thái unauthenticated');
         state = AuthState.unauthenticated();
       }
     } catch (e) {
+      print('AuthProvider: Lỗi khi kiểm tra trạng thái: $e');
       state = AuthState.unauthenticated(
         errorMessage: 'Lỗi khi kiểm tra trạng thái đăng nhập',
       );

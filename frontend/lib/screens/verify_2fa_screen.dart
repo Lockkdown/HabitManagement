@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/auth_api_service.dart';
 import '../services/storage_service.dart';
+import '../services/auth_provider.dart';
+import '../services/auth_state.dart';
+import '../models/user_model.dart';
 import '../utils/jwt_decoder.dart';
 import '../utils/app_notification.dart';
 import 'admin_dashboard_screen.dart';
 
 /// Màn hình verify OTP (đăng nhập lần sau)
-class Verify2FAScreen extends StatefulWidget {
+class Verify2FAScreen extends ConsumerStatefulWidget {
   final String tempToken;
 
   const Verify2FAScreen({
@@ -16,10 +20,10 @@ class Verify2FAScreen extends StatefulWidget {
   });
 
   @override
-  State<Verify2FAScreen> createState() => _Verify2FAScreenState();
+  ConsumerState<Verify2FAScreen> createState() => _Verify2FAScreenState();
 }
 
-class _Verify2FAScreenState extends State<Verify2FAScreen> {
+class _Verify2FAScreenState extends ConsumerState<Verify2FAScreen> {
   final AuthApiService _authApiService = AuthApiService();
   final StorageService _storageService = StorageService();
   final TextEditingController _otpController = TextEditingController();
@@ -60,6 +64,18 @@ class _Verify2FAScreenState extends State<Verify2FAScreen> {
         themePreference: authResponse.user.themePreference,
         languageCode: authResponse.user.languageCode,
       );
+
+      // CẬP NHẬT AUTHPROVIDER STATE - Quan trọng!
+      final authNotifier = ref.read(authProvider.notifier);
+      final userModel = UserModel(
+        userId: authResponse.user.userId,
+        username: authResponse.user.username,
+        email: authResponse.user.email,
+        fullName: authResponse.user.fullName,
+        themePreference: authResponse.user.themePreference,
+        languageCode: authResponse.user.languageCode,
+      );
+      authNotifier.state = AuthState.authenticated(userModel);
 
       if (!mounted) return;
 
