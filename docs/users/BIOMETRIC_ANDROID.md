@@ -55,11 +55,11 @@ Mở App
 │ Kiểm tra:                       │
 │ 1. Có refresh token?            │
 │ 2. Biometric enabled?           │
-│ 3. Thiết bị hỗ trợ?            │
+│ 3. Thiết bị hỗ trợ?             │
 └─────────────────────────────────┘
   ↓
 ┌──────────────────┬──────────────────┐
-│ Cả 3 đúng        │ Thiếu 1 hoặc nhiều│
+│ Cả 3 đúng        │Thiếu 1 hoặc nhiều│
 ├──────────────────┼──────────────────┤
 │ Hiển thị         │ Hiển thị         │
 │ Biometric Prompt │ Login Screen     │

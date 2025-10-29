@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using OtpNet;
 
 namespace backend.Controllers;
 
@@ -261,6 +262,39 @@ public class AdminController : ControllerBase
 
             // Thêm role mới
             await _userManager.AddToRoleAsync(user, dto.Role);
+
+            // Nếu gán role Admin → Bắt buộc enable 2FA
+            if (dto.Role == "Admin")
+            {
+                if (!user.TwoFactorEnabled)
+                {
+                    // Enable 2FA và generate secret key
+                    user.TwoFactorEnabled = true;
+                    user.TwoFactorSetupCompleted = false; // Chưa setup, cần setup lần đầu
+                    
+                    // Generate secret key nếu chưa có
+                    if (string.IsNullOrEmpty(user.TwoFactorSecret))
+                    {
+                        var secretKey = OtpNet.Base32Encoding.ToString(OtpNet.KeyGeneration.GenerateRandomKey(20));
+                        user.TwoFactorSecret = secretKey;
+                    }
+                    
+                    await _userManager.UpdateAsync(user);
+                    _logger.LogInformation($"Đã enable 2FA cho user {user.Email} khi gán role Admin");
+                }
+            }
+            else if (dto.Role == "User")
+            {
+                // Nếu gán role User → Disable 2FA (optional, có thể bỏ)
+                if (user.TwoFactorEnabled)
+                {
+                    user.TwoFactorEnabled = false;
+                    user.TwoFactorSetupCompleted = false;
+                    user.TwoFactorSecret = null;
+                    await _userManager.UpdateAsync(user);
+                    _logger.LogInformation($"Đã disable 2FA cho user {user.Email} khi gán role User");
+                }
+            }
 
             return Ok(new { message = $"Đã gán role '{dto.Role}' thành công" });
         }

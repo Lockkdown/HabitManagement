@@ -15,4 +15,5 @@ public class User : IdentityUser
     // 2FA properties
     public string? TwoFactorSecret { get; set; }
     public bool TwoFactorSetupCompleted { get; set; } = false;
+
 }

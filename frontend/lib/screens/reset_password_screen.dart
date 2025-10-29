@@ -135,14 +135,14 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.blue[50],
+                    color: Theme.of(context).colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
                       Icon(
                         LucideIcons.mail,
-                        color: Theme.of(context).primaryColor,
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
                         size: 20,
                       ),
                       const SizedBox(width: 12),
@@ -162,7 +162,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
-                                color: Theme.of(context).primaryColor,
+                                color: Theme.of(context).colorScheme.onPrimaryContainer,
                               ),
                             ),
                           ],
@@ -178,22 +178,28 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.green[50],
+                    color: Theme.of(context).colorScheme.secondaryContainer,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.green[200]!),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.secondary.withOpacity(0.3),
+                    ),
                   ),
                   child: Row(
                     children: [
                       Icon(
                         LucideIcons.check,
-                        color: Colors.green[700],
+                        color: Theme.of(context).colorScheme.onSecondaryContainer,
                         size: 24,
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Text(
                           'Xác nhận thành công! Vui lòng nhập mật khẩu mới.',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Theme.of(context).colorScheme.onSecondaryContainer,
+                          ),
                         ),
                       ),
                     ],
