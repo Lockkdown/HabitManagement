@@ -39,14 +39,19 @@ namespace backend.Models
         /// Ví dụ: "Mon,Wed,Fri" (Thứ 2, 4, 6 theo chuẩn ISO đã thống nhất)
         /// </summary>
         [StringLength(50)]
-        public string? DaysOfWeek { get; set; } // <<< SỬA THÀNH NULLABLE STRING
+        public string? DaysOfWeek { get; set; } // Đã là string? (nullable)
 
+        // ==========================================================
+        // <<< SỬA ĐỔI TẠI ĐÂY >>>
+        // ==========================================================
         /// <summary>
-        /// Nếu loại là Monthly, dùng để chỉ định ngày trong tháng (1–31).
+        /// Nếu loại là Monthly, dùng để chỉ định các ngày trong tháng (1–31).
+        /// Ví dụ: "1,15,30" (Lưu dưới dạng chuỗi)
         /// </summary>
-        [Range(0, 31)] // Giữ Range(0, 31) để cho phép giá trị 0 khi không phải Monthly
-        public int DayOfMonth { get; set; }
-
+        [StringLength(100)] // Cho phép lưu nhiều ngày (vd: "1,2,3...31")
+        public string? DaysOfMonth { get; set; } // <<< SỬA: Từ int DayOfMonth thành string? DaysOfMonth
+        // ==========================================================
+    
         /// <summary>
         /// Cho biết lịch này có đang được kích hoạt hay không.
         /// </summary>

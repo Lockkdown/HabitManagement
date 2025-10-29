@@ -348,8 +348,9 @@ namespace backend.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("DayOfMonth")
-                        .HasColumnType("int");
+                    b.Property<string>("DaysOfMonth")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("DaysOfWeek")
                         .HasMaxLength(50)
