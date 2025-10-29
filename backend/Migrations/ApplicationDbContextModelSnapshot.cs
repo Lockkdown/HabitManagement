@@ -169,9 +169,7 @@ namespace backend.Migrations
                         .HasColumnType("nvarchar(7)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Icon")
                         .IsRequired()
@@ -184,9 +182,7 @@ namespace backend.Migrations
                         .HasColumnType("nvarchar(100)");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("UserId")
                         .IsRequired()
@@ -211,9 +207,7 @@ namespace backend.Migrations
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("CustomFrequencyUnit")
                         .HasMaxLength(20)
@@ -221,12 +215,6 @@ namespace backend.Migrations
 
                     b.Property<int?>("CustomFrequencyValue")
                         .HasColumnType("int");
-
-                    b.Property<string>("DaysOfMonth")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("DaysOfWeek")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
@@ -262,9 +250,7 @@ namespace backend.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("UserId")
                         .IsRequired()
@@ -288,9 +274,7 @@ namespace backend.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("CompletedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("HabitId")
                         .HasColumnType("int");
@@ -324,10 +308,8 @@ namespace backend.Migrations
                         .HasColumnName("content");
 
                     b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnName("created_at");
 
                     b.Property<DateTime>("Date")
                         .HasColumnType("date")
@@ -342,10 +324,8 @@ namespace backend.Migrations
                         .HasColumnName("mood");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
-                        .HasColumnName("updated_at")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasColumnName("updated_at");
 
                     b.HasKey("Id");
 
@@ -372,7 +352,6 @@ namespace backend.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("DaysOfWeek")
-                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
@@ -392,7 +371,8 @@ namespace backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("HabitId");
+                    b.HasIndex("HabitId")
+                        .IsUnique();
 
                     b.ToTable("HabitSchedules");
                 });
@@ -577,7 +557,7 @@ namespace backend.Migrations
             modelBuilder.Entity("backend.Models.HabitCompletion", b =>
                 {
                     b.HasOne("backend.Models.Habit", "Habit")
-                        .WithMany("Completions")
+                        .WithMany("CompletionDates")
                         .HasForeignKey("HabitId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -599,8 +579,8 @@ namespace backend.Migrations
             modelBuilder.Entity("backend.Models.HabitSchedule", b =>
                 {
                     b.HasOne("backend.Models.Habit", "Habit")
-                        .WithMany("HabitSchedules")
-                        .HasForeignKey("HabitId")
+                        .WithOne("HabitSchedule")
+                        .HasForeignKey("backend.Models.HabitSchedule", "HabitId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -614,9 +594,9 @@ namespace backend.Migrations
 
             modelBuilder.Entity("backend.Models.Habit", b =>
                 {
-                    b.Navigation("Completions");
+                    b.Navigation("CompletionDates");
 
-                    b.Navigation("HabitSchedules");
+                    b.Navigation("HabitSchedule");
                 });
 #pragma warning restore 612, 618
         }

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Collections.Generic; // Đảm bảo using này tồn tại
 
 namespace backend.Models;
 
@@ -32,7 +33,7 @@ public class Habit
     public int CategoryId { get; set; }
 
     /// <summary>
-    /// Danh mục thói quen.
+    /// Danh mục thói quen (Navigation Property).
     /// </summary>
     public virtual Category Category { get; set; } = null!;
 
@@ -43,7 +44,7 @@ public class Habit
     public string UserId { get; set; } = string.Empty;
 
     /// <summary>
-    /// Người dùng sở hữu thói quen.
+    /// Người dùng sở hữu thói quen (Navigation Property).
     /// </summary>
     public virtual User User { get; set; } = null!;
 
@@ -59,38 +60,24 @@ public class Habit
     public DateTime? EndDate { get; set; }
 
     /// <summary>
-    /// Tần suất thực hiện thói quen.
+    /// Tần suất thực hiện thói quen (Frequency gốc, có thể dùng làm fallback).
     /// Các giá trị: "daily", "weekly", "monthly", "custom"
     /// </summary>
     [Required]
     [MaxLength(20)]
     public string Frequency { get; set; } = "daily";
 
-
-
-    /// <summary>
-/// Các ngày trong tuần áp dụng cho tần suất "weekly".
-/// Dạng lưu trữ JSON: "[1,3,5]" (Thứ 2, Thứ 4, Thứ 6)
-/// </summary>
-    public string? DaysOfWeek { get; set; }
-
-/// <summary>
-/// Các ngày trong tháng áp dụng cho tần suất "monthly".
-/// Dạng lưu trữ JSON: "[5,10,25]" (ngày 5, 10, 25 trong tháng)
-/// </summary>
-    public string? DaysOfMonth { get; set; }
-
-
-
-
+    // <<< ĐÃ XÓA DaysOfWeek và DaysOfMonth KHỎI ĐÂY >>>
 
     /// <summary>
     /// Giá trị tùy chỉnh cho tần suất (ví dụ: mỗi 2 ngày).
+    /// Chỉ dùng nếu Frequency = "custom".
     /// </summary>
     public int? CustomFrequencyValue { get; set; }
 
     /// <summary>
     /// Đơn vị tùy chỉnh cho tần suất (ví dụ: "days", "weeks").
+    /// Chỉ dùng nếu Frequency = "custom".
     /// </summary>
     [MaxLength(20)]
     public string? CustomFrequencyUnit { get; set; }
@@ -127,47 +114,26 @@ public class Habit
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
-    /// Danh sách các lần thực hiện thói quen.
+    /// Danh sách các lần thực hiện thói quen (Navigation Property).
+    /// Đổi tên từ Completions để khớp code Controller/DTO
     /// </summary>
-    public virtual ICollection<HabitCompletion> Completions { get; set; } = new List<HabitCompletion>();
+    public virtual ICollection<HabitCompletion> CompletionDates { get; set; } = new List<HabitCompletion>();
 
     /// <summary>
-    /// Danh sách lịch trình của thói quen.
+    /// Lịch trình chi tiết của thói quen (Navigation Property - Một-Một).
     /// </summary>
-    public virtual ICollection<HabitSchedule> HabitSchedules { get; set; } = new List<HabitSchedule>();
+    public virtual HabitSchedule? HabitSchedule { get; set; } // <<< SỬA THÀNH MỘT-MỘT (có thể null)
 }
 
-/// <summary>
-/// Đại diện cho một lần hoàn thành thói quen.
-/// </summary>
+// Lớp HabitCompletion giữ nguyên như bạn đã cung cấp
 public class HabitCompletion
 {
-    /// <summary>
-    /// ID duy nhất của lần hoàn thành.
-    /// </summary>
     public int Id { get; set; }
-
-    /// <summary>
-    /// ID của thói quen.
-    /// </summary>
     [Required]
     public int HabitId { get; set; }
-
-    /// <summary>
-    /// Thói quen được hoàn thành.
-    /// </summary>
     public virtual Habit Habit { get; set; } = null!;
-
-    /// <summary>
-    /// Ngày hoàn thành thói quen.
-    /// </summary>
     [Required]
     public DateTime CompletedAt { get; set; }
-
-    /// <summary>
-    /// Ghi chú cho lần hoàn thành này.
-    /// </summary>
     [MaxLength(500)]
     public string? Notes { get; set; }
 }
-

@@ -12,14 +12,13 @@ namespace backend.Services
     public class HabitScheduleService
     {
         private readonly ApplicationDbContext _context;
-        
 
         public HabitScheduleService(ApplicationDbContext context)
         {
             _context = context;
         }
 
-        //  Lấy danh sách lịch trình của habit
+        //  Lấy danh sách lịch trình của habit
         public async Task<List<HabitScheduleDto>> GetHabitSchedulesByHabitIdAsync(int habitId)
         {
             var schedules = await _context.HabitSchedules
@@ -29,14 +28,14 @@ namespace backend.Services
             return schedules.Select(ToDto).ToList();
         }
 
-        //  Lấy một lịch trình cụ thể
+        //  Lấy một lịch trình cụ thể
         public async Task<HabitScheduleDto?> GetHabitScheduleByIdAsync(int id)
         {
             var schedule = await _context.HabitSchedules.FindAsync(id);
             return schedule == null ? null : ToDto(schedule);
         }
 
-        //  Tạo lịch trình mới
+        //  Tạo lịch trình mới
         public async Task<HabitScheduleDto?> CreateHabitScheduleAsync(HabitScheduleDto dto)
         {
             var habitExists = await _context.Habits.AnyAsync(h => h.Id == dto.HabitId);
@@ -45,7 +44,7 @@ namespace backend.Services
             var schedule = new HabitSchedule
             {
                 HabitId = dto.HabitId,
-                FrequencyType = dto.FrequencyType,
+                FrequencyType = dto.FrequencyType, // Giả sử DTO gửi đúng chữ hoa/thường
                 FrequencyValue = dto.FrequencyValue,
                 DaysOfWeek = dto.DaysOfWeek,
                 DayOfMonth = dto.DayOfMonth,
@@ -55,17 +54,17 @@ namespace backend.Services
             _context.HabitSchedules.Add(schedule);
             await _context.SaveChangesAsync();
 
-            dto.Id = schedule.Id;
+            dto.Id = schedule.Id; // Gán lại Id vừa được tạo
             return dto;
         }
 
-        //  Cập nhật lịch trình
+        //  Cập nhật lịch trình
         public async Task<bool> UpdateHabitScheduleAsync(int id, HabitScheduleDto dto)
         {
             var schedule = await _context.HabitSchedules.FindAsync(id);
             if (schedule == null) return false;
 
-            schedule.FrequencyType = dto.FrequencyType;
+            schedule.FrequencyType = dto.FrequencyType; // Giả sử DTO gửi đúng chữ hoa/thường
             schedule.FrequencyValue = dto.FrequencyValue;
             schedule.DaysOfWeek = dto.DaysOfWeek;
             schedule.DayOfMonth = dto.DayOfMonth;
@@ -76,7 +75,7 @@ namespace backend.Services
             return true;
         }
 
-        //  Xóa lịch trình
+        //  Xóa lịch trình
         public async Task<bool> DeleteHabitScheduleAsync(int id)
         {
             var schedule = await _context.HabitSchedules.FindAsync(id);
@@ -87,472 +86,269 @@ namespace backend.Services
             return true;
         }
 
-        //  Kiểm tra xem habit có cần thực hiện vào ngày cụ thể không
+        //  Kiểm tra xem habit có cần thực hiện vào ngày cụ thể không
         public async Task<bool> ShouldHabitBePerformedOnDateAsync(int habitId, DateTime date)
         {
-            var schedules = await _context.HabitSchedules
-                .Where(hs => hs.HabitId == habitId && hs.IsActive)
-                .ToListAsync();
+             var habit = await _context.Habits
+                .Include(h => h.HabitSchedule) // Include schedule
+                .FirstOrDefaultAsync(h => h.Id == habitId);
 
-            if (!schedules.Any()) return false;
+            if (habit == null || !habit.IsActive) return false;
 
-            var startDate = await _context.Habits
-                .Where(h => h.Id == habitId)
-                .Select(h => h.StartDate)
-                .FirstOrDefaultAsync();
+            // Kiểm tra ngày bắt đầu/kết thúc
+            if (habit.StartDate.Date > date.Date) return false; // So sánh Date
+            if (habit.EndDate.HasValue && habit.EndDate.Value.Date < date.Date) return false; // So sánh Date
 
-            if (startDate == default) return false;
-
-            foreach (var s in schedules)
+            // Ưu tiên kiểm tra schedule
+            if (habit.HabitSchedule != null)
             {
-                if (IsDateInSchedule(s, date, startDate))
-                    return true;
+                 return IsDateInSchedule(habit.HabitSchedule, date.Date, habit.StartDate.Date);
             }
+             // Nếu không có schedule, chỉ trả về true nếu là daily
+            else if (habit.Frequency.Equals("daily", StringComparison.OrdinalIgnoreCase))
+            {
+                 return true;
+            }
+
             return false;
         }
 
 
+        // ==========================================================
+        // <<< BẮT ĐẦU CODE ĐÃ SỬA >>>
+        // ==========================================================
 
-        //  Kiểm tra xem ngày có nằm trong lịch trình không
+        //  Kiểm tra xem ngày có nằm trong lịch trình không
         /// <summary>
-        ///  dùng để kiểm tra một ngày cụ thể (ví dụ hôm nay) có nằm trong lịch trình (schedule)
-        ///  của một thói quen hay không.
+        ///  dùng để kiểm tra một ngày cụ thể có nằm trong lịch trình (schedule)
+        ///  của một thói quen hay không.
         /// </summary>
         /// <returns></returns>
         private static bool IsDateInSchedule(HabitSchedule s, DateTime date, DateTime habitStartDate)
         {
-            switch (s.FrequencyType)
+            // Thêm kiểm tra: Chỉ kiểm tra nếu ngày hiện tại >= ngày bắt đầu của thói quen
+            if (date.Date < habitStartDate.Date)
             {
-                // Kiểm tra theo ngày
+                Console.WriteLine($"      -> IsDateInSchedule: Date {date:yyyy-MM-dd} is before habit start date {habitStartDate:yyyy-MM-dd}. Result: false");
+                return false;
+            }
+            // Thêm kiểm tra: Nếu schedule không active thì bỏ qua
+            if (!s.IsActive)
+            {
+                Console.WriteLine($"      -> IsDateInSchedule: Schedule {s.Id} is not active. Result: false");
+                return false;
+            }
+
+            // Chuyển FrequencyType thành chữ hoa chữ cái đầu để so sánh nhất quán
+            string frequencyTypeUpper = string.IsNullOrEmpty(s.FrequencyType) ? "" :
+                char.ToUpperInvariant(s.FrequencyType[0]) + s.FrequencyType.Substring(1).ToLowerInvariant();
+
+            switch (frequencyTypeUpper) // Dùng biến đã chuẩn hóa
+            {
                 case "Daily":
-                    if (s.FrequencyValue <= 0) return false;
+                    if (s.FrequencyValue <= 0) {
+                        Console.WriteLine($"      -> IsDateInSchedule Daily: Invalid FrequencyValue ({s.FrequencyValue}). Result: false");
+                        return false;
+                    }
                     var diff = (date.Date - habitStartDate.Date).Days;
-                    return diff >= 0 && diff % s.FrequencyValue == 0;
+                    bool dailyResult = diff >= 0 && diff % s.FrequencyValue == 0;
+                    Console.WriteLine($"      -> IsDateInSchedule Daily: Date={date:yyyy-MM-dd}, Start={habitStartDate:yyyy-MM-dd}, Diff={diff}, FreqValue={s.FrequencyValue}, Result={dailyResult}");
+                    return dailyResult;
 
-                // Kiểm tra theo tuần
-                case "Weekly":
-                    if (string.IsNullOrEmpty(s.DaysOfWeek)) return false;
+                case "Weekly": // <<< SỬA LOGIC CASE NÀY >>>
+                    if (string.IsNullOrEmpty(s.DaysOfWeek)) {
+                        Console.WriteLine($"      -> IsDateInSchedule Weekly: DaysOfWeek is null or empty. Result: false");
+                        return false;
+                    }
 
-                    // Phương pháp 1: Kiểm tra theo mã ngày (Mon, Tue, ...)
                     try
                     {
-                        var dayCode = date.DayOfWeek.ToString().Substring(0, 3); // Lấy mã ngày
-                        var weekDays = s.DaysOfWeek.Split(',').Select(x => x.Trim()); // Tách chuỗi thành danh sách
-                        var result = weekDays.Contains(dayCode); // Kiểm tra có trong danh sách không
-                        Console.WriteLine($"IsDateInSchedule Weekly check (method 1): Today is {dayCode}, selected days are {s.DaysOfWeek}, result = {result}");
-                        return result;
-                        // Nếu thành công, trả về kết quả
+                        // Lấy DayOfWeek enum của ngày cần kiểm tra (Sunday = 0, Monday = 1, ..., Saturday = 6)
+                        DayOfWeek currentDayOfWeek = date.DayOfWeek;
+                        // Log giá trị DayOfWeek gốc
+                        Console.WriteLine($"      -> IsDateInSchedule Weekly: Checking date {date:yyyy-MM-dd}, DayOfWeek Enum = {currentDayOfWeek} ({(int)currentDayOfWeek})");
+
+
+                        // Tách chuỗi từ database ("Mon,Wed,Fri")
+                        var scheduledDayStrings = s.DaysOfWeek.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                                     .Select(x => x.Trim().ToLowerInvariant()); // Chuyển thành chữ thường để so sánh
+
+                        // Tạo một Dictionary để map chuỗi sang DayOfWeek enum
+                        var dayMap = new Dictionary<string, DayOfWeek>(StringComparer.OrdinalIgnoreCase) // Thêm IgnoreCase cho Key
+                        {
+                            { "sun", DayOfWeek.Sunday },
+                            { "mon", DayOfWeek.Monday },
+                            { "tue", DayOfWeek.Tuesday },
+                            { "wed", DayOfWeek.Wednesday },
+                            { "thu", DayOfWeek.Thursday },
+                            { "fri", DayOfWeek.Friday },
+                            { "sat", DayOfWeek.Saturday }
+                        };
+
+                        bool shouldPerform = false;
+                        foreach (var dayStr in scheduledDayStrings)
+                        {
+                            // Kiểm tra xem chuỗi ngày từ DB có trong map không và có khớp với ngày hiện tại không
+                             Console.WriteLine($"        -> Comparing schedule day string '{dayStr}'...");
+                            if (dayMap.TryGetValue(dayStr, out DayOfWeek scheduledDayEnum)) // Dùng TryGetValue an toàn hơn
+                            {
+                                 Console.WriteLine($"          -> Mapped '{dayStr}' to Enum: {scheduledDayEnum}");
+                                if (scheduledDayEnum == currentDayOfWeek)
+                                {
+                                    shouldPerform = true;
+                                     Console.WriteLine($"          -> MATCH FOUND!");
+                                    break; // Tìm thấy khớp, không cần kiểm tra nữa
+                                }
+                            } else {
+                                 Console.WriteLine($"          -> Could not map '{dayStr}' to a DayOfWeek Enum.");
+                            }
+                        }
+
+                        Console.WriteLine($"      -> IsDateInSchedule Weekly: Final check result for '{s.DaysOfWeek}' on {currentDayOfWeek}: ShouldPerform={shouldPerform}");
+                        return shouldPerform;
                     }
                     catch (Exception ex)
                     {
-                        // Phương pháp 2: Kiểm tra theo số ngày (1-7)
-                        try
-                        {
-                            int dayOfWeek = date.DayOfWeek == DayOfWeek.Sunday ? 7 : (int)date.DayOfWeek; // Chuyển đổi DayOfWeek sang số (Thứ 2 = 1, ..., Chủ nhật = 7)
-                            var weekDays = s.DaysOfWeek.Split(',').Select(x => int.Parse(x.Trim())); // Tách chuỗi và chuyển thành số
-                            var result = weekDays.Contains(dayOfWeek); // Kiểm tra có trong danh sách không
-                            Console.WriteLine($"IsDateInSchedule Weekly check (method 2): Today is day {dayOfWeek}, selected days are {s.DaysOfWeek}, result = {result}");
-                            return result;
-                        }
-                        catch (Exception innerEx)
-                        {
-                            Console.WriteLine($"Error in IsDateInSchedule Weekly check: {innerEx.Message}");
-                            return false;
-                        }
+                        Console.WriteLine($"      -> Error processing DaysOfWeek ('{s.DaysOfWeek}') in IsDateInSchedule: {ex.Message}. Result: false");
+                        return false; // Lỗi thì coi như không khớp
                     }
+                    // <<< KẾT THÚC SỬA LOGIC CASE NÀY >>>
 
-                // Kiểm tra theo tháng
                 case "Monthly":
                     try
                     {
-                        var result = date.Day == s.DayOfMonth; // Kiểm tra ngày trong tháng
-                        Console.WriteLine($"IsDateInSchedule Monthly check: Today is day {date.Day}, selected day is {s.DayOfMonth}, result = {result}");
-                        return result;
+                        bool monthlyResult = date.Day == s.DayOfMonth;
+                        Console.WriteLine($"      -> IsDateInSchedule Monthly: Today is day {date.Day}, schedule day is {s.DayOfMonth}, Result={monthlyResult}");
+                        return monthlyResult;
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"Error in IsDateInSchedule Monthly check: {ex.Message}");
+                        Console.WriteLine($"      -> Error checking DayOfMonth ({s.DayOfMonth}) in IsDateInSchedule: {ex.Message}. Result: false");
                         return false;
                     }
 
                 default:
+                    Console.WriteLine($"      -> IsDateInSchedule: Unknown FrequencyType. Original: '{s.FrequencyType}', Normalized: '{frequencyTypeUpper}' for schedule Id {s.Id}. Result: false");
                     return false;
             }
         }
 
+
         // Lấy danh sách thói quen cần làm hôm nay
-        public async Task<List<HabitResponseDto>> GetHabitsDueTodayAsync(string userId, DateTime selectedDate) 
-        //Nhận vào userId → xác định người dùng.
+        public async Task<List<HabitResponseDto>> GetHabitsDueTodayAsync(string userId, DateTime selectedDate)
         {
             try
             {
-                Console.WriteLine($"GetHabitsDueTodayAsync called for userId: {userId}");
-                var today = selectedDate.Date;
-                Console.WriteLine($"Today: {today}");
+                Console.WriteLine($"GetHabitsDueTodayAsync called for userId: {userId}, selectedDate: {selectedDate:yyyy-MM-dd}");
+                var today = selectedDate.Date; // Chỉ lấy phần ngày
 
-                // Lấy tất cả habits của user đang hoạt động
+                // Lấy tất cả habits của user đang hoạt động VÀ BAO GỒM HabitSchedule, Category, Completions
                 var habits = await _context.Habits
                     .Where(h => h.UserId == userId && h.IsActive)
-                    .Include(h => h.Category)
+                    .Include(h => h.Category)      // Include Category để map DTO
+                    .Include(h => h.HabitSchedule) // <<< QUAN TRỌNG: Include HabitSchedule
+                    .Include(h => h.CompletionDates) // Include completions để gửi về client
                     .ToListAsync();
 
-                // In thông tin debug
                 Console.WriteLine($"Found {habits.Count} active habits for user {userId}");
 
-                var dueTodayHabits = new List<HabitResponseDto>();// Tạo danh sách kết quả các thói quen 
-                
-                // Duyệt qua từng habit để kiểm tra
+                var dueTodayHabits = new List<HabitResponseDto>();
+
                 foreach (var habit in habits)
                 {
-                    Console.WriteLine($"Processing habit: {habit.Name} (Frequency: {habit.Frequency})");
-                    
-                    // Lấy tất cả schedules của habit này
-                    var schedules = await _context.HabitSchedules
-                        .Where(s => s.HabitId == habit.Id && s.IsActive)
-                        .ToListAsync();
+                    Console.WriteLine($"  Processing habit: {habit.Id} - {habit.Name}");
 
-                    Console.WriteLine($"Found {schedules.Count} schedules for habit {habit.Name}");
-
-                    var shouldPerform = false;
-                    
-                    // Kiểm tra dựa trên frequency và ngày
-                    bool checkedByFrequency = false;
-                    
-                    // Nếu có schedules, kiểm tra theo schedule
-                    if (schedules.Any())
-                    {
-                        foreach (var schedule in schedules)
-                        {
-                            if (IsDateInSchedule(schedule, today, habit.StartDate))
-                            {
-                                shouldPerform = true;
-                                Console.WriteLine($"Habit {habit.Name} should perform today based on schedule");
-                                break;
-                            }
-                        }
+                    // Kiểm tra ngày bắt đầu và kết thúc chung của Habit
+                    if (habit.StartDate.Date > today) { // So sánh Date
+                        Console.WriteLine($"    -> Skipping: StartDate ({habit.StartDate:yyyy-MM-dd}) is after today.");
+                        continue;
                     }
-                    
-                    // Nếu không có schedules hoặc không tìm thấy schedule phù hợp, kiểm tra dựa trên frequency
-                    if (!shouldPerform)
-                    {
-                        // Kiểm tra dựa trên frequency và ngày
-                        switch (habit.Frequency.ToLower())
-                        {
-                            case "daily":
-                                shouldPerform = true;
-                                Console.WriteLine($"Daily habit {habit.Name} should perform today");
-                                break;
-
-                            case "weekly":
-                                if (!string.IsNullOrEmpty(habit.DaysOfWeek))
-                                {
-                                    try
-                                    {
-                                        // Chuyển đổi ngày trong tuần hiện tại sang số (1-7)
-                                        int dayOfWeek = today.DayOfWeek == DayOfWeek.Sunday ? 7 : (int)today.DayOfWeek;
-                                        Console.WriteLine($"Weekly habit check: Today is day {dayOfWeek} ({today.DayOfWeek}), DaysOfWeek = {habit.DaysOfWeek}");
-                                        
-                                        // Phương pháp đơn giản: Kiểm tra nếu chuỗi chứa ngày hiện tại
-                                        if (habit.DaysOfWeek.Contains(dayOfWeek.ToString()))
-                                        {
-                                            shouldPerform = true;
-                                            Console.WriteLine($"Weekly habit {habit.Name} should perform today (simple check)");
-                                        }
-                                        else
-                                        {
-                                            // Thử các phương pháp phức tạp hơn
-                                            try
-                                            {
-                                                var cleaned = habit.DaysOfWeek.Replace("[", "").Replace("]", "").Replace(" ", "");
-                                                var weekDays = cleaned.Split(',')
-                                                    .Select(x => int.Parse(x))
-                                                    .ToList();
-
-                                                shouldPerform = weekDays.Contains(dayOfWeek);
-                                                Console.WriteLine($"Weekly habit check (cleaned): shouldPerform = {shouldPerform}");
-                                            }
-                                            catch (Exception parseEx)
-                                            {
-                                                Console.WriteLine($"Error parsing DaysOfWeek for habit {habit.Name}: {parseEx.Message}");
-                                                shouldPerform = false;
-                                            }
-                                        }
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Console.WriteLine($"Error in weekly habit check for habit {habit.Name}: {ex.Message}");
-                                        shouldPerform = false;
-                                    }
-                                }
-                                else
-                                {
-                                    shouldPerform = false;
-                                    Console.WriteLine($"Weekly habit {habit.Name} has no DaysOfWeek specified");
-                                }
-                                break;
-
-                            case "monthly":
-                                if (!string.IsNullOrEmpty(habit.DaysOfMonth))
-                                {
-                                    try
-                                    {
-                                        Console.WriteLine($"Monthly habit check: Today is day {today.Day}, DaysOfMonth = {habit.DaysOfMonth}");
-                                        
-                                        // Phương pháp đơn giản: Kiểm tra nếu chuỗi chứa ngày hiện tại
-                                        if (habit.DaysOfMonth.Contains(today.Day.ToString()))
-                                        {
-                                            shouldPerform = true;
-                                            Console.WriteLine($"Monthly habit {habit.Name} should perform today (simple check)");
-                                        }
-                                        else
-                                        {
-                                            // Thử các phương pháp phức tạp hơn
-                                            try
-                                            {
-                                                var cleaned = habit.DaysOfMonth.Replace("[", "").Replace("]", "").Replace(" ", "");
-                                                var monthDays = cleaned.Split(',')
-                                                    .Select(x => int.Parse(x))
-                                                    .ToList();
-
-                                                shouldPerform = monthDays.Contains(today.Day);
-                                                Console.WriteLine($"Monthly habit check (cleaned): shouldPerform = {shouldPerform}");
-                                            }
-                                            catch (Exception parseEx)
-                                            {
-                                                Console.WriteLine($"Error parsing DaysOfMonth for habit {habit.Name}: {parseEx.Message}");
-                                                // Thử kiểm tra nếu DaysOfMonth chỉ chứa một số
-                                                try
-                                                {
-                                                    int singleDay = int.Parse(habit.DaysOfMonth.Trim());
-                                                    shouldPerform = today.Day == singleDay;
-                                                    Console.WriteLine($"Monthly habit check (single day): shouldPerform = {shouldPerform}");
-                                                }
-                                                catch (Exception ex2)
-                                                {
-                                                    Console.WriteLine($"Final error parsing DaysOfMonth: {ex2.Message}");
-                                                    shouldPerform = false;
-                                                }
-                                            }
-                                        }
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        Console.WriteLine($"Error in monthly habit check for habit {habit.Name}: {ex.Message}");
-                                        shouldPerform = false;
-                                    }
-                                }
-                                else
-                                {
-                                    shouldPerform = false;
-                                    Console.WriteLine($"Monthly habit {habit.Name} has no DaysOfMonth specified");
-                                }
-                                break;
-
-                            default:
-                                shouldPerform = ShouldHabitBePerformedToday(habit, today);
-                                break;
-                        }
-
-                        Console.WriteLine($"Habit {habit.Name} (Frequency: {habit.Frequency}) check: {shouldPerform}");
+                    if (habit.EndDate.HasValue && habit.EndDate.Value.Date < today) { // So sánh Date
+                        Console.WriteLine($"    -> Skipping: EndDate ({habit.EndDate.Value:yyyy-MM-dd}) is before today.");
+                        continue;
                     }
 
-
-                    if (shouldPerform)
+                    bool shouldPerform = false;
+                    // Ưu tiên kiểm tra bằng HabitSchedule nếu có
+                    if (habit.HabitSchedule != null)
                     {
-                        Console.WriteLine($"Adding habit {habit.Name} to due today list");
-                        
-                        // Tính toán completions một cách an toàn
-                        var weeklyCompletions = 0;
-                        var monthlyCompletions = 0;
-                        
-                        List<DateTime> completionDates = new List<DateTime>();
-                        try
+                        Console.WriteLine($"    -> Checking HabitSchedule (Id: {habit.HabitSchedule.Id}, Type: {habit.HabitSchedule.FrequencyType})");
+                        if (IsDateInSchedule(habit.HabitSchedule, today, habit.StartDate))
                         {
-                            weeklyCompletions = await _context.HabitCompletions
-                                .CountAsync(c => c.HabitId == habit.Id && 
-                                           c.CompletedAt >= DateTime.UtcNow.AddDays(-7));
-                            monthlyCompletions = await _context.HabitCompletions
-                                .CountAsync(c => c.HabitId == habit.Id && 
-                                           c.CompletedAt >= DateTime.UtcNow.AddDays(-30));
-                            
-                            // Get completion dates for this habit
-                            completionDates = await _context.HabitCompletions
-                                .Where(c => c.HabitId == habit.Id)
-                                .Select(c => c.CompletedAt)
-                                .OrderBy(d => d)
-                                .ToListAsync();
+                            shouldPerform = true;
+                            Console.WriteLine($"    -> DUE today based on HabitSchedule.");
                         }
-                        catch
-                        {
-                            // Nếu có lỗi với completions, set về 0
-                            weeklyCompletions = 0;
-                            monthlyCompletions = 0;
-                            completionDates = new List<DateTime>();
+                        else {
+                            Console.WriteLine($"    -> NOT due today based on HabitSchedule.");
                         }
+                    }
+                    else // Nếu không có HabitSchedule, thử kiểm tra bằng Frequency gốc (chỉ hỗ trợ daily)
+                    {
+                        Console.WriteLine($"    -> No HabitSchedule found. Checking base Frequency ('{habit.Frequency}').");
+                        // Chỉ thêm nếu Frequency gốc là daily VÀ ngày hiện tại >= ngày bắt đầu
+                        if (habit.Frequency.Equals("daily", StringComparison.OrdinalIgnoreCase) && today >= habit.StartDate.Date) {
+                            shouldPerform = true;
+                            Console.WriteLine($"    -> DUE today (Daily habit without schedule).");
+                        } else {
+                            Console.WriteLine($"    -> Non-daily habit without schedule OR before start date - Skipping.");
+                        }
+                    }
 
-                        dueTodayHabits.Add(new HabitResponseDto
-                        {
-                            Id = habit.Id,
-                            Name = habit.Name,
-                            Description = habit.Description,
-                            Category = new CategoryResponseDto
-                            {
-                                Id = habit.Category.Id,
-                                Name = habit.Category.Name,
-                                Color = habit.Category.Color,
-                                Icon = habit.Category.Icon,
-                                HabitCount = 0,
-                                CreatedAt = habit.Category.CreatedAt
-                            },
-                            StartDate = habit.StartDate,
-                            EndDate = habit.EndDate,
-                            Frequency = habit.Frequency,
-                            HasReminder = habit.HasReminder,
-                            ReminderTime = habit.ReminderTime,
-                            ReminderType = habit.ReminderType,
-                            IsActive = habit.IsActive,
-                            WeeklyCompletions = weeklyCompletions,
-                            MonthlyCompletions = monthlyCompletions,
-                            CreatedAt = habit.CreatedAt,
-                            CompletionDates = completionDates
-                        });
+                    // Nếu habit cần thực hiện hôm nay, thêm vào danh sách kết quả
+                    if(shouldPerform)
+                    {
+                        Console.WriteLine($"    -> Adding habit '{habit.Name}' to due today list.");
+                        dueTodayHabits.Add(MapToHabitResponseDto(habit)); // Dùng hàm Map helper
                     }
                 }
 
-                Console.WriteLine($"Returning {dueTodayHabits.Count} habits due today");
+                Console.WriteLine($"Returning {dueTodayHabits.Count} habits due today for user {userId}");
                 return dueTodayHabits;
             }
             catch (Exception ex)
             {
-                // Log lỗi và trả về danh sách rỗng
-                Console.WriteLine($"Error in GetHabitsDueTodayAsync: {ex.Message}");
+                Console.WriteLine($"Error in GetHabitsDueTodayAsync for userId {userId}: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                return new List<HabitResponseDto>();
+                return new List<HabitResponseDto>(); // Trả về rỗng để tránh crash client
             }
         }
 
-        // Helper method để kiểm tra habit có nên thực hiện hôm nay không (fallback logic)
-        private static bool ShouldHabitBePerformedToday(Models.Habit habit, DateTime today)
+        // === HÀM MAP HELPER ===
+        private HabitResponseDto MapToHabitResponseDto(Habit habit)
         {
-            // Kiểm tra ngày bắt đầu và kết thúc
-            if (habit.StartDate > today) return false;
-            if (habit.EndDate.HasValue && habit.EndDate.Value < today) return false;
-            
-            // Logic dựa trên frequency và các ngày cụ thể
-        switch (habit.Frequency.ToLower())
-        {
-            case "daily":   
-                return true;
-                
-            case "weekly":
-                // Kiểm tra các ngày trong tuần được chọn
-                if (!string.IsNullOrEmpty(habit.DaysOfWeek))
-                {
-                    try
-                    {
-                        var selectedDays = System.Text.Json.JsonSerializer.Deserialize<List<int>>(habit.DaysOfWeek);
-                        // Chuyển đổi DayOfWeek sang số (Thứ 2 = 1, Thứ 3 = 2, ..., Chủ nhật = 7)
-                        int dayOfWeekNumber = today.DayOfWeek == DayOfWeek.Sunday ? 7 : (int)today.DayOfWeek;
-                        var result = selectedDays != null && selectedDays.Contains(dayOfWeekNumber);
-                        
-                        // In thông tin debug
-                        Console.WriteLine($"ShouldHabitBePerformedToday - Weekly: Today is day {dayOfWeekNumber}, selected days are {habit.DaysOfWeek}, result = {result}");
-                        
-                        return result;
-                    }
-                    catch (Exception ex)
-                    {
-                        // Nếu có lỗi khi parse JSON, thử phương pháp khác
-                        Console.WriteLine($"Error parsing DaysOfWeek in ShouldHabitBePerformedToday: {ex.Message}");
-                        try {
-                            var weekDays = habit.DaysOfWeek.Replace("[", "").Replace("]", "").Split(',').Select(x => int.Parse(x.Trim()));
-                            int dayOfWeekNumber = today.DayOfWeek == DayOfWeek.Sunday ? 7 : (int)today.DayOfWeek;
-                            var result = weekDays.Contains(dayOfWeekNumber);
-                            Console.WriteLine($"Weekly habit check (method 2): Today is day {dayOfWeekNumber}, selected days are {habit.DaysOfWeek}, result = {result}");
-                            return result;
-                        }
-                        catch (Exception innerEx) {
-                            Console.WriteLine($"Error in method 2 for habit {habit.Name}: {innerEx.Message}");
-                            // Fallback về ngày bắt đầu
-                            return today.DayOfWeek == habit.StartDate.DayOfWeek;
-                        }
-                    }
-                }
-                // Fallback về ngày bắt đầu nếu không có thông tin cụ thể
-                return today.DayOfWeek == habit.StartDate.DayOfWeek;
-                
-            case "monthly":
-                // Kiểm tra các ngày trong tháng được chọn
-                if (!string.IsNullOrEmpty(habit.DaysOfMonth))
-                {
-                    try
-                    {
-                        var selectedDays = System.Text.Json.JsonSerializer.Deserialize<List<int>>(habit.DaysOfMonth);
-                        var result = selectedDays != null && selectedDays.Contains(today.Day);
-                        
-                        // In thông tin debug
-                        Console.WriteLine($"ShouldHabitBePerformedToday - Monthly: Today is day {today.Day}, selected days are {habit.DaysOfMonth}, result = {result}");
-                        
-                        return result;
-                    }
-                    catch (Exception ex)
-                    {
-                        // Nếu có lỗi khi parse JSON, thử phương pháp khác
-                        Console.WriteLine($"Error parsing DaysOfMonth in ShouldHabitBePerformedToday: {ex.Message}");
-                        try {
-                            var monthDays = habit.DaysOfMonth.Replace("[", "").Replace("]", "").Split(',').Select(x => int.Parse(x.Trim()));
-                            var result = monthDays.Contains(today.Day);
-                            Console.WriteLine($"Monthly habit check (method 2): Today is day {today.Day}, selected days are {habit.DaysOfMonth}, result = {result}");
-                            return result;
-                        }
-                        catch (Exception innerEx) {
-                            Console.WriteLine($"Error in method 2 for habit {habit.Name}: {innerEx.Message}");
-                            // Fallback về ngày bắt đầu
-                            return today.Day == habit.StartDate.Day;
-                        }
-                    }
-                }
-                // Fallback về ngày bắt đầu nếu không có thông tin cụ thể
-                return today.Day == habit.StartDate.Day;
-                
-            case "custom":
-                // Xử lý tần suất tùy chỉnh
-                if (habit.CustomFrequencyValue.HasValue && !string.IsNullOrEmpty(habit.CustomFrequencyUnit))
-                {
-                    var value = habit.CustomFrequencyValue.Value;
-                    var unit = habit.CustomFrequencyUnit.ToLower();
-                    
-                    if (value <= 0) return false;
-                    
-                    var diff = (today.Date - habit.StartDate.Date).TotalDays;
-                    if (diff < 0) return false;
-                    
-                    switch (unit)
-                    {
-                        case "day":
-                        case "days":
-                            return diff % value == 0;
-                            
-                        case "week":
-                        case "weeks":
-                            return diff % (value * 7) == 0;
-                            
-                        case "month":
-                        case "months":
-                            // Tính số tháng giữa hai ngày
-                            var monthsDiff = (today.Year - habit.StartDate.Year) * 12 + today.Month - habit.StartDate.Month;
-                            return monthsDiff % value == 0 && today.Day == habit.StartDate.Day;
-                    }
-                }
-                
-                // Mặc định 3 ngày một lần nếu không có thông tin cụ thể
-                var frequencyDays = 3;
-                var daysDiff = (today.Date - habit.StartDate.Date).Days;
-                return daysDiff >= 0 && daysDiff % frequencyDays == 0;
-                
-            default:
-                return true; // Mặc định là daily
-            }
+            // Tính toán completions (đã include CompletionDates)
+            var nowUtc = DateTime.UtcNow;
+            var startOfWeekUtc = nowUtc.Date.AddDays(-(int)nowUtc.DayOfWeek + (int)DayOfWeek.Monday);
+            if (nowUtc.DayOfWeek == DayOfWeek.Sunday) startOfWeekUtc = startOfWeekUtc.AddDays(-7);
+            var startOfMonthUtc = new DateTime(nowUtc.Year, nowUtc.Month, 1);
+
+            var weeklyCompletions = habit.CompletionDates?.Count(c => c.CompletedAt >= startOfWeekUtc) ?? 0;
+            var monthlyCompletions = habit.CompletionDates?.Count(c => c.CompletedAt >= startOfMonthUtc) ?? 0;
+
+            return new HabitResponseDto
+            {
+                Id = habit.Id,
+                Name = habit.Name,
+                Description = habit.Description,
+                 Category = habit.Category == null ? null : new CategoryResponseDto {
+                    Id = habit.Category.Id,
+                    Name = habit.Category.Name,
+                    Color = habit.Category.Color,
+                    Icon = habit.Category.Icon,
+                },
+                StartDate = habit.StartDate,
+                EndDate = habit.EndDate,
+                Frequency = habit.Frequency,
+                HasReminder = habit.HasReminder,
+                ReminderTime = habit.ReminderTime,
+                ReminderType = habit.ReminderType,
+                IsActive = habit.IsActive,
+                HabitSchedule = habit.HabitSchedule == null ? null : ToDto(habit.HabitSchedule),
+                CompletionDates = habit.CompletionDates?.Select(c => c.CompletedAt).ToList() ?? new List<DateTime>(),
+                WeeklyCompletions = weeklyCompletions,
+                MonthlyCompletions = monthlyCompletions,
+                CreatedAt = habit.CreatedAt
+            };
         }
 
         // Helper chuyển Model → DTO
@@ -569,5 +365,10 @@ namespace backend.Services
                 IsActive = hs.IsActive
             };
         }
-    }
-}
+
+        // ==========================================================
+        // <<< KẾT THÚC CODE ĐÃ SỬA >>>
+        // ==========================================================
+
+    } // Đóng class HabitScheduleService
+} // Đóng namespace backend.Services

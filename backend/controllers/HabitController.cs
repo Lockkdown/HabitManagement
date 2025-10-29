@@ -5,6 +5,7 @@ using backend.Data;
 using backend.Models;
 using backend.Models.Dtos;
 using System.Security.Claims;
+using System.Text.Json; // Thêm using này để Serialize
 
 namespace backend.Controllers;
 
@@ -26,24 +27,27 @@ public class HabitController : ControllerBase
     /// <summary>
     /// Lấy danh sách tất cả thói quen của người dùng hiện tại.
     /// </summary>
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<HabitResponseDto>>> GetHabits()
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<HabitResponseDto>>> GetHabits()
+    {
+        try
         {
-            try
+            var userId = GetCurrentUserId();
+            Console.WriteLine($"GetHabits called for userId: {userId}");
+            
+            if (userId == null) 
             {
-                var userId = GetCurrentUserId();
-                Console.WriteLine($"GetHabits called for userId: {userId}");
-                
-                if (userId == null) 
-                {
-                    Console.WriteLine("GetHabits: userId is null, returning Unauthorized");
-                    return Unauthorized();
-                }
+                Console.WriteLine("GetHabits: userId is null, returning Unauthorized");
+                return Unauthorized();
+            }
 
             Console.WriteLine($"GetHabits: Querying habits for userId: {userId}");
+            
+            // QUAN TRỌNG: Include HabitSchedule ở đây để GetHabits trả về schedule luôn
             var habits = await _context.Habits
                 .Where(h => h.UserId == userId)
                 .Include(h => h.Category)
+                .Include(h => h.HabitSchedule) // <<< THÊM INCLUDE SCHEDULE
                 .ToListAsync();
 
             var habitDtos = new List<HabitResponseDto>();
@@ -51,10 +55,10 @@ public class HabitController : ControllerBase
             {
                 var weeklyCompletions = await _context.HabitCompletions
                     .CountAsync(c => c.HabitId == habit.Id && 
-                               c.CompletedAt >= DateTime.UtcNow.AddDays(-7));
+                                c.CompletedAt >= DateTime.UtcNow.AddDays(-7));
                 var monthlyCompletions = await _context.HabitCompletions
                     .CountAsync(c => c.HabitId == habit.Id && 
-                               c.CompletedAt >= DateTime.UtcNow.AddDays(-30));
+                                c.CompletedAt >= DateTime.UtcNow.AddDays(-30));
 
                 // Get completion dates for this habit
                 var completionDates = await _context.HabitCompletions
@@ -68,14 +72,14 @@ public class HabitController : ControllerBase
                     Id = habit.Id,
                     Name = habit.Name,
                     Description = habit.Description,
-                    Category = new CategoryResponseDto
+                    Category = new CategoryResponseDto // Đảm bảo Category không null
                     {
-                        Id = habit.Category.Id,
-                        Name = habit.Category.Name,
-                        Color = habit.Category.Color,
-                        Icon = habit.Category.Icon,
-                        HabitCount = 0,
-                        CreatedAt = habit.Category.CreatedAt
+                        Id = habit.Category?.Id ?? 0,
+                        Name = habit.Category?.Name ?? "N/A",
+                        Color = habit.Category?.Color ?? "#808080",
+                        Icon = habit.Category?.Icon ?? "help",
+                        HabitCount = 0, // Tính toán nếu cần
+                        CreatedAt = habit.Category?.CreatedAt ?? DateTime.MinValue
                     },
                     StartDate = habit.StartDate,
                     EndDate = habit.EndDate,
@@ -87,7 +91,18 @@ public class HabitController : ControllerBase
                     WeeklyCompletions = weeklyCompletions,
                     MonthlyCompletions = monthlyCompletions,
                     CreatedAt = habit.CreatedAt,
-                    CompletionDates = completionDates
+                    CompletionDates = completionDates,
+                    // Map HabitSchedule sang DTO nếu nó tồn tại
+                    HabitSchedule = habit.HabitSchedule == null ? null : new HabitScheduleDto
+                    {
+                         Id = habit.HabitSchedule.Id,
+                         HabitId = habit.HabitSchedule.HabitId,
+                         FrequencyType = habit.HabitSchedule.FrequencyType,
+                         FrequencyValue = habit.HabitSchedule.FrequencyValue,
+                         DaysOfWeek = habit.HabitSchedule.DaysOfWeek,
+                         DayOfMonth = habit.HabitSchedule.DayOfMonth,
+                         IsActive = habit.HabitSchedule.IsActive
+                    }
                 });
             }
 
@@ -114,16 +129,17 @@ public class HabitController : ControllerBase
         var habit = await _context.Habits
             .Where(h => h.Id == id && h.UserId == userId)
             .Include(h => h.Category)
+            .Include(h => h.HabitSchedule) // <<< THÊM INCLUDE SCHEDULE
             .FirstOrDefaultAsync();
 
         if (habit == null) return NotFound();
 
         var weeklyCompletions = await _context.HabitCompletions
             .CountAsync(c => c.HabitId == habit.Id && 
-                       c.CompletedAt >= DateTime.UtcNow.AddDays(-7));
+                           c.CompletedAt >= DateTime.UtcNow.AddDays(-7));
         var monthlyCompletions = await _context.HabitCompletions
             .CountAsync(c => c.HabitId == habit.Id && 
-                       c.CompletedAt >= DateTime.UtcNow.AddDays(-30));
+                           c.CompletedAt >= DateTime.UtcNow.AddDays(-30));
 
         // Get completion dates for this habit
         var completionDates = await _context.HabitCompletions
@@ -137,14 +153,14 @@ public class HabitController : ControllerBase
             Id = habit.Id,
             Name = habit.Name,
             Description = habit.Description,
-            Category = new CategoryResponseDto
+             Category = new CategoryResponseDto // Đảm bảo Category không null
             {
-                Id = habit.Category.Id,
-                Name = habit.Category.Name,
-                Color = habit.Category.Color,
-                Icon = habit.Category.Icon,
-                HabitCount = 0,
-                CreatedAt = habit.Category.CreatedAt
+                Id = habit.Category?.Id ?? 0,
+                Name = habit.Category?.Name ?? "N/A",
+                Color = habit.Category?.Color ?? "#808080",
+                Icon = habit.Category?.Icon ?? "help",
+                HabitCount = 0, // Tính toán nếu cần
+                CreatedAt = habit.Category?.CreatedAt ?? DateTime.MinValue
             },
             StartDate = habit.StartDate,
             EndDate = habit.EndDate,
@@ -156,7 +172,18 @@ public class HabitController : ControllerBase
             WeeklyCompletions = weeklyCompletions,
             MonthlyCompletions = monthlyCompletions,
             CreatedAt = habit.CreatedAt,
-            CompletionDates = completionDates
+            CompletionDates = completionDates,
+            // Map HabitSchedule sang DTO nếu nó tồn tại
+            HabitSchedule = habit.HabitSchedule == null ? null : new HabitScheduleDto
+            {
+                 Id = habit.HabitSchedule.Id,
+                 HabitId = habit.HabitSchedule.HabitId,
+                 FrequencyType = habit.HabitSchedule.FrequencyType,
+                 FrequencyValue = habit.HabitSchedule.FrequencyValue,
+                 DaysOfWeek = habit.HabitSchedule.DaysOfWeek,
+                 DayOfMonth = habit.HabitSchedule.DayOfMonth,
+                 IsActive = habit.HabitSchedule.IsActive
+            }
         };
 
         return Ok(response);
@@ -177,46 +204,17 @@ public class HabitController : ControllerBase
 
         if (category == null) return BadRequest("Danh mục không tồn tại");
 
-        // Xử lý tần suất và các ngày cụ thể
-        string? daysOfWeek = null;
-        string? daysOfMonth = null;
-
-        switch (dto.Frequency.ToLower())
-        {
-            case "weekly":
-                // Xử lý ngày trong tuần (nếu có)
-                if (dto.DaysOfWeek != null && dto.DaysOfWeek.Any())
-                {
-                    daysOfWeek = System.Text.Json.JsonSerializer.Serialize(dto.DaysOfWeek);
-                }
-                break;
-            case "monthly":
-                // Xử lý ngày trong tháng (nếu có)
-                if (dto.DaysOfMonth != null && dto.DaysOfMonth.Any())
-                {
-                    daysOfMonth = System.Text.Json.JsonSerializer.Serialize(dto.DaysOfMonth);
-                }
-                break;
-            case "custom":
-                // Đảm bảo có giá trị tần suất tùy chỉnh
-                if (!dto.CustomFrequencyValue.HasValue || string.IsNullOrEmpty(dto.CustomFrequencyUnit))
-                {
-                    return BadRequest("Cần cung cấp giá trị và đơn vị tần suất tùy chỉnh");
-                }
-                break;
-        }
-
+        // --- Tạo đối tượng Habit ---
         var habit = new Habit
         {
             Name = dto.Name,
             Description = dto.Description,
             CategoryId = dto.CategoryId,
             UserId = userId,
-            StartDate = dto.StartDate,
-            EndDate = dto.EndDate,
+            StartDate = dto.StartDate.Date, // Chỉ lấy phần ngày
+            EndDate = dto.EndDate?.Date,   // Chỉ lấy phần ngày nếu có
             Frequency = dto.Frequency,
-            DaysOfWeek = daysOfWeek,
-            DaysOfMonth = daysOfMonth,
+            // KHÔNG lưu DaysOfWeek/DaysOfMonth trực tiếp vào Habit nữa
             CustomFrequencyValue = dto.CustomFrequencyValue,
             CustomFrequencyUnit = dto.CustomFrequencyUnit,
             HasReminder = dto.HasReminder,
@@ -228,10 +226,55 @@ public class HabitController : ControllerBase
         };
 
         _context.Habits.Add(habit);
+        // Lưu habit trước để có Id
+        await _context.SaveChangesAsync(); 
+
+        // --- Tạo đối tượng HabitSchedule liên kết ---
+        var schedule = new HabitSchedule
+        {
+            HabitId = habit.Id, // Gán Id của habit vừa tạo
+            FrequencyType = dto.Frequency,
+            FrequencyValue = 1, // Mặc định là 1, sẽ cập nhật bên dưới nếu cần
+            DaysOfWeek = null,
+            DayOfMonth = 0,
+            IsActive = true
+        };
+
+        // Map int (1-7) sang string ("Mon", "Tue"...) - Cần khớp với map Flutter gửi lên
+        var intToDayStringMap = new Dictionary<int, string> {
+            {1, "Mon"}, {2, "Tue"}, {3, "Wed"}, {4, "Thu"}, {5, "Fri"}, {6, "Sat"}, {7, "Sun"}
+        };
+
+        switch (dto.Frequency.ToLower())
+        {
+            case "weekly":
+                schedule.DaysOfWeek = (dto.DaysOfWeek != null && dto.DaysOfWeek.Any())
+                    ? string.Join(",", dto.DaysOfWeek.Select(d => intToDayStringMap.ContainsKey(d) ? intToDayStringMap[d] : null)
+                                                  .Where(s => s != null))
+                    : null;
+                Console.WriteLine($"Creating schedule for weekly: DaysOfWeek set to '{schedule.DaysOfWeek}'");
+                break;
+            case "monthly":
+                schedule.DayOfMonth = (dto.DaysOfMonth != null && dto.DaysOfMonth.Any())
+                    ? dto.DaysOfMonth.First()
+                    : 0;
+                Console.WriteLine($"Creating schedule for monthly: DayOfMonth set to '{schedule.DayOfMonth}'");
+                break;
+             case "daily":
+                // Giữ lại FrequencyValue nếu DTO cung cấp, nếu không thì mặc định là 1
+                schedule.FrequencyValue = dto.CustomFrequencyValue ?? 1; 
+                Console.WriteLine($"Creating schedule for daily: FrequencyValue set to '{schedule.FrequencyValue}'");
+                break;
+             // Thêm case "custom" nếu cần
+        }
+
+        _context.HabitSchedules.Add(schedule);
         await _context.SaveChangesAsync();
 
         // Load category để trả về response
         await _context.Entry(habit).Reference(h => h.Category).LoadAsync();
+        // Gán schedule vào habit để trả về response (EF Core có thể tự làm điều này nếu quan hệ được định nghĩa đúng)
+        habit.HabitSchedule = schedule; 
 
         var response = new HabitResponseDto
         {
@@ -244,7 +287,7 @@ public class HabitController : ControllerBase
                 Name = habit.Category.Name,
                 Color = habit.Category.Color,
                 Icon = habit.Category.Icon,
-                HabitCount = 0,
+                HabitCount = 0, // Tính toán nếu cần
                 CreatedAt = habit.Category.CreatedAt
             },
             StartDate = habit.StartDate,
@@ -254,127 +297,179 @@ public class HabitController : ControllerBase
             ReminderTime = habit.ReminderTime,
             ReminderType = habit.ReminderType,
             IsActive = habit.IsActive,
-            WeeklyCompletions = 0,
-            MonthlyCompletions = 0,
-            CreatedAt = habit.CreatedAt
+            WeeklyCompletions = 0, // Mới tạo nên là 0
+            MonthlyCompletions = 0, // Mới tạo nên là 0
+            CreatedAt = habit.CreatedAt,
+            CompletionDates = new List<DateTime>(), // Mới tạo nên rỗng
+            HabitSchedule = new HabitScheduleDto // Map schedule DTO
+            {
+                 Id = schedule.Id,
+                 HabitId = schedule.HabitId,
+                 FrequencyType = schedule.FrequencyType,
+                 FrequencyValue = schedule.FrequencyValue,
+                 DaysOfWeek = schedule.DaysOfWeek,
+                 DayOfMonth = schedule.DayOfMonth,
+                 IsActive = schedule.IsActive
+            }
         };
 
         return CreatedAtAction(nameof(GetHabit), new { id = habit.Id }, response);
     }
 
+    // ==========================================================
+    // <<< BẮT ĐẦU SỬA PHƯƠNG THỨC UPDATE >>>
+    // ==========================================================
     /// <summary>
     /// Cập nhật thói quen.
     /// </summary>
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateHabit(int id, UpdateHabitDto dto)
+    public async Task<IActionResult> UpdateHabit(int id, UpdateHabitDto dto) // Đảm bảo DTO này có DaysOfWeek (List<int>), DaysOfMonth (List<int>)
     {
         var userId = GetCurrentUserId();
         if (userId == null) return Unauthorized();
 
+        // Lấy Habit VÀ HabitSchedule liên kết
         var habit = await _context.Habits
+            .Include(h => h.HabitSchedule) // <<< THÊM INCLUDE
             .FirstOrDefaultAsync(h => h.Id == id && h.UserId == userId);
 
         if (habit == null) return NotFound();
 
-        if (dto.Name != null) habit.Name = dto.Name;
-        if (dto.Description != null) habit.Description = dto.Description;
-        if (dto.CategoryId.HasValue) habit.CategoryId = dto.CategoryId.Value;
-        
-        // Xử lý cập nhật tần suất nếu có thay đổi
+        // --- 1. Cập nhật các trường cơ bản của Habit ---
+        // Dùng ?? để chỉ cập nhật nếu DTO có giá trị, giữ lại giá trị cũ nếu DTO là null/không có
+        habit.Name = dto.Name ?? habit.Name;
+        habit.Description = dto.Description; // Cho phép set Description thành null
+        habit.CategoryId = dto.CategoryId ?? habit.CategoryId;
+        habit.StartDate = dto.StartDate?.Date ?? habit.StartDate; // Chỉ lấy phần ngày
+        habit.EndDate = dto.EndDate?.Date;   // Cho phép set EndDate thành null, chỉ lấy phần ngày
+        habit.HasReminder = dto.HasReminder ?? habit.HasReminder;
+        habit.ReminderTime = dto.ReminderTime; // Cho phép set ReminderTime thành null
+        habit.ReminderType = dto.ReminderType; // Cho phép set ReminderType thành null
+        habit.IsActive = dto.IsActive ?? habit.IsActive;
+
+        // --- 2. Cập nhật Frequency gốc VÀ HabitSchedule ---
+        bool scheduleChanged = false;
         if (dto.Frequency != null)
         {
-            habit.Frequency = dto.Frequency;
-            
-            // Xử lý các ngày cụ thể dựa trên tần suất mới
+            habit.Frequency = dto.Frequency; // Cập nhật Frequency gốc trên Habit
+
+            // Tìm hoặc tạo mới HabitSchedule
+            var schedule = habit.HabitSchedule;
+            if (schedule == null)
+            {
+                Console.WriteLine($"Habit {id} has no schedule, creating new one.");
+                schedule = new HabitSchedule { HabitId = habit.Id };
+                _context.HabitSchedules.Add(schedule);
+                habit.HabitSchedule = schedule; // Gán schedule mới tạo vào habit
+            }
+
+            // Cập nhật các trường của HabitSchedule
+            schedule.FrequencyType = dto.Frequency; // Luôn cập nhật FrequencyType
+            schedule.IsActive = dto.IsActive ?? schedule.IsActive; // Đồng bộ IsActive
+
+            // Map int (1-7) sang string ("Mon", "Tue"...) - Cần khớp với map Flutter UpdateHabitModel.toJson()
+            var intToDayStringMap = new Dictionary<int, string> {
+                {1, "Mon"}, {2, "Tue"}, {3, "Wed"}, {4, "Thu"}, {5, "Fri"}, {6, "Sat"}, {7, "Sun"}
+            };
+
             switch (dto.Frequency.ToLower())
             {
                 case "weekly":
-                    // Xử lý ngày trong tuần (nếu có)
-                    if (dto.DaysOfWeek != null && dto.DaysOfWeek.Any())
-                    {
-                        habit.DaysOfWeek = System.Text.Json.JsonSerializer.Serialize(dto.DaysOfWeek);
-                    }
-                    else
-                    {
-                        habit.DaysOfWeek = null;
-                    }
-                    // Reset các giá trị không liên quan
-                    habit.DaysOfMonth = null;
+                    // Chuyển List<int> từ DTO thành chuỗi "Mon,Wed"
+                    var newDaysOfWeek = (dto.DaysOfWeek != null && dto.DaysOfWeek.Any())
+                        ? string.Join(",", dto.DaysOfWeek.Select(d => intToDayStringMap.ContainsKey(d) ? intToDayStringMap[d] : null)
+                                                      .Where(s => s != null))
+                        : null;
+                     if (schedule.DaysOfWeek != newDaysOfWeek) {
+                         schedule.DaysOfWeek = newDaysOfWeek;
+                         scheduleChanged = true;
+                     }
+                    schedule.DayOfMonth = 0; // Reset trường không liên quan
+                    schedule.FrequencyValue = 1; // Mặc định cho weekly
+                    Console.WriteLine($"Updating schedule for weekly: DaysOfWeek set to '{schedule.DaysOfWeek}'");
                     break;
-                    
+
                 case "monthly":
-                    // Xử lý ngày trong tháng (nếu có)
-                    if (dto.DaysOfMonth != null && dto.DaysOfMonth.Any())
-                    {
-                        habit.DaysOfMonth = System.Text.Json.JsonSerializer.Serialize(dto.DaysOfMonth);
-                    }
-                    else
-                    {
-                        habit.DaysOfMonth = null;
-                    }
-                    // Reset các giá trị không liên quan
-                    habit.DaysOfWeek = null;
+                    // Lấy ngày đầu tiên từ List<int> (nếu có)
+                    var newDayOfMonth = (dto.DaysOfMonth != null && dto.DaysOfMonth.Any())
+                        ? dto.DaysOfMonth.First()
+                        : 0;
+                     if (schedule.DayOfMonth != newDayOfMonth) {
+                        schedule.DayOfMonth = newDayOfMonth;
+                        scheduleChanged = true;
+                     }
+                    schedule.DaysOfWeek = null; // Reset trường không liên quan
+                    schedule.FrequencyValue = 1; // Mặc định cho monthly
+                     Console.WriteLine($"Updating schedule for monthly: DayOfMonth set to '{schedule.DayOfMonth}'");
                     break;
-                    
-                case "custom":
-                    // Đảm bảo có giá trị tần suất tùy chỉnh
-                    if (dto.CustomFrequencyValue.HasValue && !string.IsNullOrEmpty(dto.CustomFrequencyUnit))
-                    {
-                        habit.CustomFrequencyValue = dto.CustomFrequencyValue;
-                        habit.CustomFrequencyUnit = dto.CustomFrequencyUnit;
+
+                 case "daily":
+                    var newFreqValue = dto.CustomFrequencyValue ?? 1;
+                    if(schedule.FrequencyValue != newFreqValue) {
+                        schedule.FrequencyValue = newFreqValue;
+                        scheduleChanged = true;
                     }
-                    // Reset các giá trị không liên quan
-                    habit.DaysOfWeek = null;
-                    habit.DaysOfMonth = null;
+                    schedule.DaysOfWeek = null; // Reset
+                    schedule.DayOfMonth = 0;   // Reset
+                    Console.WriteLine($"Updating schedule for daily: FrequencyValue set to '{schedule.FrequencyValue}'");
                     break;
-                    
-                default: // daily hoặc các loại khác
-                    // Reset tất cả các giá trị tần suất đặc biệt
-                    habit.DaysOfWeek = null;
-                    habit.DaysOfMonth = null;
-                    habit.CustomFrequencyValue = null;
-                    habit.CustomFrequencyUnit = null;
+
+                 // Bạn có thể thêm case "custom" nếu cần
+                // case "custom":
+                //    // ...
+                //    break;
+
+                default: // Reset cho các trường hợp không xác định
+                    if (schedule.DaysOfWeek != null) { schedule.DaysOfWeek = null; scheduleChanged = true; }
+                    if (schedule.DayOfMonth != 0) { schedule.DayOfMonth = 0; scheduleChanged = true; }
+                    if (schedule.FrequencyValue != 1) { schedule.FrequencyValue = 1; scheduleChanged = true; }
+                    Console.WriteLine($"Updating schedule for frequency '{dto.Frequency}': Resetting specific days.");
                     break;
             }
+             // Chỉ đánh dấu schedule là Modified nếu có thay đổi thực sự HOẶC nếu là schedule mới
+             if (scheduleChanged || schedule.Id == 0) {
+                 _context.Entry(schedule).State = schedule.Id == 0 ? EntityState.Added : EntityState.Modified;
+             }
+
         }
-        else
-        {
-            // Nếu không cập nhật tần suất nhưng có cập nhật các ngày cụ thể
-            if (habit.Frequency.ToLower() == "weekly" && dto.DaysOfWeek != null)
-            {
-                habit.DaysOfWeek = dto.DaysOfWeek.Any() 
-                    ? System.Text.Json.JsonSerializer.Serialize(dto.DaysOfWeek) 
-                    : null;
-            }
-            else if (habit.Frequency.ToLower() == "monthly" && dto.DaysOfMonth != null)
-            {
-                habit.DaysOfMonth = dto.DaysOfMonth.Any() 
-                    ? System.Text.Json.JsonSerializer.Serialize(dto.DaysOfMonth) 
-                    : null;
-            }
-            else if (habit.Frequency.ToLower() == "custom")
-            {
-                if (dto.CustomFrequencyValue.HasValue) 
-                    habit.CustomFrequencyValue = dto.CustomFrequencyValue;
-                if (!string.IsNullOrEmpty(dto.CustomFrequencyUnit)) 
-                    habit.CustomFrequencyUnit = dto.CustomFrequencyUnit;
-            }
-        }
-        if (dto.StartDate.HasValue) habit.StartDate = dto.StartDate.Value;
-        if (dto.EndDate.HasValue) habit.EndDate = dto.EndDate.Value;
-        if (dto.Frequency != null) habit.Frequency = dto.Frequency;
-        if (dto.CustomFrequencyValue.HasValue) habit.CustomFrequencyValue = dto.CustomFrequencyValue.Value;
-        if (dto.CustomFrequencyUnit != null) habit.CustomFrequencyUnit = dto.CustomFrequencyUnit;
-        if (dto.HasReminder.HasValue) habit.HasReminder = dto.HasReminder.Value;
-        if (dto.ReminderTime.HasValue) habit.ReminderTime = dto.ReminderTime.Value;
-        if (dto.ReminderType != null) habit.ReminderType = dto.ReminderType;
-        if (dto.IsActive.HasValue) habit.IsActive = dto.IsActive.Value;
+        // <<< BỎ HOÀN TOÀN LOGIC CẬP NHẬT DaysOfWeek/DaysOfMonth TRỰC TIẾP TRÊN HABIT >>>
+        // Khối else (dòng 342-364 cũ) đã bị xóa.
 
         habit.UpdatedAt = DateTime.UtcNow;
 
-        await _context.SaveChangesAsync();
-        return NoContent();
+        _context.Entry(habit).State = EntityState.Modified; // Đánh dấu habit đã thay đổi
+
+        try
+        {
+            var changes = await _context.SaveChangesAsync();
+            Console.WriteLine($"Successfully updated habit {id}. {changes} entities saved.");
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+             Console.WriteLine($"Concurrency error updating habit {id}: {ex.Message}");
+            // Xử lý lỗi concurrency nếu cần
+             var entry = ex.Entries.Single();
+             var databaseValues = await entry.GetDatabaseValuesAsync();
+             if (databaseValues == null) {
+                 Console.WriteLine("Entity deleted by another user.");
+             } else {
+                 Console.WriteLine("Entity modified by another user.");
+                 // Có thể reload hoặc thông báo lỗi
+             }
+            return Conflict(new { message = "Dữ liệu đã bị thay đổi bởi người khác. Vui lòng tải lại.", error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+             Console.WriteLine($"Error saving changes for habit {id}: {ex.Message}");
+             Console.WriteLine($"Stack trace: {ex.StackTrace}");
+             return StatusCode(500, new { message = "Lỗi khi lưu thay đổi.", error = ex.Message });
+        }
+
+        return NoContent(); // Trả về 204 No Content khi thành công
     }
+    // ==========================================================
+    // <<< KẾT THÚC SỬA PHƯƠNG THỨC UPDATE >>>
+    // ==========================================================
 
     /// <summary>
     /// Xóa thói quen.
@@ -386,12 +481,29 @@ public class HabitController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var habit = await _context.Habits
+            // QUAN TRỌNG: Include cả schedule và completions để xóa cascaded (nếu có)
+            .Include(h => h.HabitSchedule)
+            .Include(h => h.CompletionDates) 
             .FirstOrDefaultAsync(h => h.Id == id && h.UserId == userId);
 
         if (habit == null) return NotFound();
 
-        _context.Habits.Remove(habit);
-        await _context.SaveChangesAsync();
+        // Xóa completions trước nếu không có cascade delete
+        // _context.HabitCompletions.RemoveRange(habit.CompletionDates); 
+        // Xóa schedule trước nếu không có cascade delete
+        // if(habit.HabitSchedule != null) _context.HabitSchedules.Remove(habit.HabitSchedule);
+
+        _context.Habits.Remove(habit); // EF Core sẽ tự xóa schedule/completions nếu có cascade delete
+
+        try 
+        {
+            await _context.SaveChangesAsync();
+        } 
+        catch (DbUpdateException ex) 
+        {
+             Console.WriteLine($"Error deleting habit {id}: {ex.InnerException?.Message ?? ex.Message}");
+             return StatusCode(500, new { message = "Lỗi khi xóa thói quen.", error = ex.InnerException?.Message ?? ex.Message });
+        }
 
         return NoContent();
     }
@@ -416,21 +528,34 @@ public class HabitController : ControllerBase
 
             if (habit == null) return NotFound();
 
-            var completedAt = dto.CompletedAt ?? DateTime.UtcNow;
-            Console.WriteLine($"Final CompletedAt: {completedAt}");
+            // Sử dụng UTC cho CompletedAt nếu không có múi giờ cụ thể
+            var completedAt = dto.CompletedAt?.ToUniversalTime() ?? DateTime.UtcNow;
+            Console.WriteLine($"Final CompletedAt (UTC): {completedAt}");
+
+             // Kiểm tra xem đã hoàn thành trong ngày này chưa (chỉ phần Date)
+            bool alreadyCompletedToday = await _context.HabitCompletions
+                .AnyAsync(c => c.HabitId == id && c.CompletedAt.Date == completedAt.Date);
+
+            if (alreadyCompletedToday)
+            {
+                Console.WriteLine($"Habit {id} already completed on {completedAt.Date:yyyy-MM-dd}.");
+                // Có thể trả về lỗi hoặc thông báo thành công (tùy yêu cầu)
+                return Ok(new { message = $"Thói quen đã được hoàn thành vào ngày {completedAt.Date:yyyy-MM-dd}." });
+                // return Conflict(new { message = "Thói quen đã được hoàn thành trong ngày này." }); 
+            }
 
             var completion = new HabitCompletion
             {
                 HabitId = id,
                 Notes = dto.Notes,
-                CompletedAt = completedAt
+                CompletedAt = completedAt // Lưu giờ UTC
             };
 
             _context.HabitCompletions.Add(completion);
             await _context.SaveChangesAsync();
 
             Console.WriteLine($"Successfully completed habit {id} at {completedAt}");
-            return Ok(new { message = "Đã đánh dấu hoàn thành thói quen" });
+            return Ok(new { message = "Đã đánh dấu hoàn thành thói quen", completionId = completion.Id });
         }
         catch (Exception ex)
         {
@@ -450,25 +575,32 @@ public class HabitController : ControllerBase
         if (userId == null) return Unauthorized();
 
         var habit = await _context.Habits
-            .FirstOrDefaultAsync(h => h.Id == id && h.UserId == userId);
+            .AnyAsync(h => h.Id == id && h.UserId == userId); // Chỉ cần kiểm tra tồn tại
 
-        if (habit == null) return NotFound();
+        if (!habit) return NotFound();
 
         var query = _context.HabitCompletions
             .Where(c => c.HabitId == id);
 
+        // Chuyển đổi sang UTC nếu cần so sánh chính xác
         if (startDate.HasValue)
-            query = query.Where(c => c.CompletedAt >= startDate.Value);
-
+        {
+            var startUtc = startDate.Value.ToUniversalTime();
+            query = query.Where(c => c.CompletedAt >= startUtc);
+        }
         if (endDate.HasValue)
-            query = query.Where(c => c.CompletedAt <= endDate.Value);
+        {
+             var endUtc = endDate.Value.ToUniversalTime().AddDays(1).AddTicks(-1); // Bao gồm cả ngày kết thúc
+            query = query.Where(c => c.CompletedAt <= endUtc);
+        }
+
 
         var completions = await query
             .OrderByDescending(c => c.CompletedAt)
             .Select(c => new
             {
                 Id = c.Id,
-                CompletedAt = c.CompletedAt,
+                CompletedAt = c.CompletedAt, // Trả về giờ UTC
                 Notes = c.Notes
             })
             .ToListAsync();
@@ -486,10 +618,10 @@ public class HabitController : ControllerBase
         if (userId == null) return Unauthorized();
 
         // Kiểm tra habit có thuộc về user không
-        var habit = await _context.Habits
-            .FirstOrDefaultAsync(h => h.Id == habitId && h.UserId == userId);
+        var habitExists = await _context.Habits
+            .AnyAsync(h => h.Id == habitId && h.UserId == userId);
 
-        if (habit == null) return NotFound("Habit not found");
+        if (!habitExists) return NotFound("Habit not found");
 
         // Tìm completion
         var completion = await _context.HabitCompletions
@@ -511,4 +643,3 @@ public class HabitController : ControllerBase
         return User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     }
 }
-
