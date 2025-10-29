@@ -5,59 +5,54 @@ namespace backend.Models
 {
     /// <summary>
     /// Bảng HabitSchedule mô tả lịch lặp lại của một thói quen.
-    /// Dùng để xác định thói quen xuất hiện vào những ngày nào trong lịch (Daily, Weekly, Monthly...).
+    /// Dùng để xác định thói quen xuất hiện vào những ngày nào trong lịch.
+    /// Mối quan hệ Một-Một với Habit.
     /// </summary>
     public class HabitSchedule
     {
         [Key]
         public int Id { get; set; }
 
-        // Liên kết với bảng Habit (1 Habit có thể có nhiều cấu hình lịch)
+        // Liên kết với bảng Habit (Khóa ngoại cho quan hệ 1-1)
         [Required]
-        [ForeignKey("Habit")]
+        // [ForeignKey("Habit")] // ForeignKey attribute thường dùng cho quan hệ 1-nhiều, có thể bỏ ở đây nếu dùng Fluent API
         public int HabitId { get; set; }
 
         /// <summary>
         /// Loại chu kỳ lặp: "Daily", "Weekly", "Monthly".
-        /// Daily  -> Lặp mỗi X ngày.
-        /// Weekly -> Lặp vào các ngày cố định trong tuần.
-        /// Monthly -> Lặp vào một ngày cố định trong tháng.
         /// </summary>
         [Required]
         [StringLength(20)]
-        public string FrequencyType { get; set; } = "Daily";
+        public string FrequencyType { get; set; } = "Daily"; // Giữ nguyên chữ hoa để khớp IsDateInSchedule
 
         /// <summary>
         /// Khoảng cách giữa các lần lặp.
-        /// - Với Daily: số ngày giữa các lần thực hiện (1 = mỗi ngày, 2 = cách 2 ngày, 3 = cách 3 ngày...)
-        /// - Với Weekly: số tuần giữa các chu kỳ (1 = mỗi tuần, 2 = cách 2 tuần)
-        /// - Với Monthly: số tháng giữa các chu kỳ (1 = mỗi tháng, 2 = cách 2 tháng)
+        /// - Daily: số ngày (1 = mỗi ngày, 2 = cách ngày)
+        /// - Weekly: số tuần (1 = mỗi tuần) - Thường là 1
+        /// - Monthly: số tháng (1 = mỗi tháng) - Thường là 1
         /// </summary>
         [Range(1, 365)]
         public int FrequencyValue { get; set; } = 1;
 
         /// <summary>
         /// Nếu loại là Weekly, dùng để chỉ định những ngày trong tuần thực hiện.
-        /// Ví dụ: "Mon,Wed,Fri" (Thứ 2, 4, 6)
-        /// Nếu không phải Weekly, có thể để trống.
+        /// Ví dụ: "Mon,Wed,Fri" (Thứ 2, 4, 6 theo chuẩn ISO đã thống nhất)
         /// </summary>
         [StringLength(50)]
-        public string DaysOfWeek { get; set; } = string.Empty;
+        public string? DaysOfWeek { get; set; } // <<< SỬA THÀNH NULLABLE STRING
 
         /// <summary>
         /// Nếu loại là Monthly, dùng để chỉ định ngày trong tháng (1–31).
-        /// Nếu không phải Monthly, có thể để trống hoặc = 0.
         /// </summary>
-        [Range(0, 31)]
+        [Range(0, 31)] // Giữ Range(0, 31) để cho phép giá trị 0 khi không phải Monthly
         public int DayOfMonth { get; set; }
 
         /// <summary>
         /// Cho biết lịch này có đang được kích hoạt hay không.
-        /// Dùng khi người dùng tạm dừng một thói quen.
         /// </summary>
         public bool IsActive { get; set; } = true;
 
-        // Navigation Property: kết nối ngược về Habit
+        // Navigation Property: kết nối ngược về Habit (cho quan hệ 1-1)
         public virtual Habit Habit { get; set; } = null!;
     }
 }

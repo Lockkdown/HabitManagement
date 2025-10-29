@@ -326,13 +326,13 @@ class _CreateHabitScreenState extends ConsumerState<CreateHabitScreen> {
   // Widget chọn ngày trong tuần
   Widget _buildWeekdaySelector() {
     final weekdays = [
-      {'day': 2, 'name': 'Thứ Hai'},
-      {'day': 3, 'name': 'Thứ Ba'},
-      {'day': 4, 'name': 'Thứ Tư'},
-      {'day': 5, 'name': 'Thứ Năm'},
-      {'day': 6, 'name': 'Thứ Sáu'},
-      {'day': 7, 'name': 'Thứ Bảy'},
-      {'day': 1, 'name': 'Chủ Nhật'},
+      {'day': 1, 'name': 'Thứ Hai'},
+  {'day': 2, 'name': 'Thứ Ba'},
+  {'day': 3, 'name': 'Thứ Tư'},
+  {'day': 4, 'name': 'Thứ Năm'},
+  {'day': 5, 'name': 'Thứ Sáu'}, // <-- Đúng
+  {'day': 6, 'name': 'Thứ Bảy'},
+  {'day': 7, 'name': 'Chủ Nhật'},
     ];
     
     return Container(
