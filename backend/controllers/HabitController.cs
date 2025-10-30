@@ -493,25 +493,39 @@ public class HabitController : ControllerBase
             var userId = GetCurrentUserId();
             if (userId == null) return Unauthorized();
 
-            Console.WriteLine($"CompleteHabit called for habitId: {id}, userId: {userId}");
+            Console.WriteLine($"=== CompleteHabit DEBUG ===");
+            Console.WriteLine($"HabitId: {id}, UserId: {userId}");
             Console.WriteLine($"DTO CompletedAt: {dto.CompletedAt}");
+            Console.WriteLine($"DTO CompletedAt Kind: {dto.CompletedAt?.Kind}");
+            Console.WriteLine($"Current UTC Now: {DateTime.UtcNow}");
+            Console.WriteLine($"Current Local Now: {DateTime.Now}");
 
             var habit = await _context.Habits
                 .FirstOrDefaultAsync(h => h.Id == id && h.UserId == userId);
 
             if (habit == null) return NotFound();
 
-            var completedAt = dto.CompletedAt?.ToUniversalTime() ?? DateTime.UtcNow;
+            // SỬA LỖI: Frontend đã gửi UTC, không cần chuyển đổi lại
+            var completedAt = dto.CompletedAt ?? DateTime.UtcNow;
             Console.WriteLine($"Final CompletedAt (UTC): {completedAt}");
+            Console.WriteLine($"Final CompletedAt Kind: {completedAt.Kind}");
 
-            // Kiểm tra xem đã hoàn thành trong ngày này chưa (chỉ phần Date)
-            bool alreadyCompletedToday = await _context.HabitCompletions
-                .AnyAsync(c => c.HabitId == id && c.CompletedAt.Date == completedAt.Date);
+            // SỬA LỖI: Lấy ngày từ UTC datetime (frontend gửi 12:00 UTC cùng ngày)
+            var completedDateOnly = completedAt.Date; // Lấy ngày từ UTC
+            Console.WriteLine($"CompletedAt UTC Date: {completedDateOnly:yyyy-MM-dd}");
+            
+            // Kiểm tra xem đã hoàn thành trong ngày này chưa (so sánh theo ngày UTC)
+            var existingCompletions = await _context.HabitCompletions
+                .Where(c => c.HabitId == id)
+                .ToListAsync();
+                
+            bool alreadyCompletedToday = existingCompletions
+                .Any(c => c.CompletedAt.Date == completedDateOnly);
 
             if (alreadyCompletedToday)
             {
-                Console.WriteLine($"Habit {id} already completed on {completedAt.Date:yyyy-MM-dd}.");
-                return Ok(new { message = $"Thói quen đã được hoàn thành vào ngày {completedAt.Date:yyyy-MM-dd}." });
+                Console.WriteLine($"Habit {id} already completed on {completedDateOnly:yyyy-MM-dd} (UTC date).");
+                return Ok(new { message = $"Thói quen đã được hoàn thành vào ngày {completedDateOnly:yyyy-MM-dd}." });
             }
 
             var completion = new HabitCompletion
@@ -524,7 +538,7 @@ public class HabitController : ControllerBase
             _context.HabitCompletions.Add(completion);
             await _context.SaveChangesAsync();
 
-            Console.WriteLine($"Successfully completed habit {id} at {completedAt}");
+            Console.WriteLine($"Successfully completed habit {id} at {completedAt} (UTC date: {completedDateOnly:yyyy-MM-dd})");
             return Ok(new { message = "Đã đánh dấu hoàn thành thói quen", completionId = completion.Id });
         }
         catch (Exception ex)
