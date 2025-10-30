@@ -8,6 +8,8 @@ import '../services/biometric_service.dart';
 import '../themes/theme_provider.dart';
 import '../api/habit_api_service.dart';
 import '../api/user_api_service.dart';
+import '../api/statistics_api_service.dart';
+import '../models/habit_model.dart';
 import 'login_screen.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -1088,6 +1090,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final habitApiService = HabitApiService();
       final habits = await habitApiService.getHabits();
       
+      // Get statistics data from API
+      final statisticsApiService = StatisticsApiService();
+      Map<String, dynamic>? overviewStats;
+      List<Map<String, dynamic>>? heatmapData;
+      Map<String, Map<String, dynamic>> habitDetailsMap = {};
+      
+      try {
+        // Get overview statistics
+        final overviewResponse = await statisticsApiService.getOverviewStatistics();
+        overviewStats = Map<String, dynamic>.from(overviewResponse);
+        
+        // Get heatmap data for all habits
+        final heatmapResponse = await statisticsApiService.getHeatmapData(days: 365);
+        heatmapData = List<Map<String, dynamic>>.from(
+          heatmapResponse.map((item) => Map<String, dynamic>.from(item))
+        );
+        
+        // Get detailed statistics for each habit
+        for (final habit in habits) {
+          try {
+            final habitDetails = await statisticsApiService.getHabitDetails(habit.id, days: 365);
+            habitDetailsMap[habit.id.toString()] = Map<String, dynamic>.from(habitDetails);
+          } catch (e) {
+            print('Lỗi khi lấy chi tiết thói quen ${habit.id}: $e');
+            // Continue with other habits even if one fails
+          }
+        }
+      } catch (e) {
+        print('Lỗi khi lấy dữ liệu thống kê: $e');
+        // Continue with export even if statistics fail
+      }
+      
       // Get user settings
       final userSettings = {
         'fullName': await _storageService.getFullName(),
@@ -1101,10 +1135,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         'habitColor': await _storageService.getHabitColor(),
       };
 
-      // Create export data
+      // Create export data with statistics
       final exportData = {
         'exportDate': DateTime.now().toIso8601String(),
-        'version': '1.0',
+        'version': '2.0', // Updated version to include statistics
         'userSettings': userSettings,
         'habits': habits.map((habit) => {
           'id': habit.id,
@@ -1128,6 +1162,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           'createdAt': habit.createdAt.toIso8601String(),
           'completionDates': habit.completionDates.map((date) => date.toIso8601String()).toList(),
         }).toList(),
+        'statistics': {
+          'overviewStats': overviewStats,
+          'heatmapData': heatmapData,
+          'habitDetails': habitDetailsMap,
+        },
       };
 
       // Convert to JSON
@@ -1197,8 +1236,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           throw Exception('File không đúng định dạng');
         }
 
-        // Show confirmation dialog
+        // Show confirmation dialog with statistics info
         Navigator.pop(context); // Close loading
+        
+        final hasStatistics = importData['statistics'] != null;
+        final statisticsInfo = hasStatistics ? importData['statistics'] : null;
         
         final confirmed = await showDialog<bool>(
           context: context,
@@ -1215,12 +1257,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
+                  'Phiên bản: ${importData['version'] ?? 'N/A'}',
+                  style: const TextStyle(color: Colors.white70),
+                ),
+                const SizedBox(height: 8),
+                Text(
                   'Số thói quen: ${importData['habits']?.length ?? 0}',
                   style: const TextStyle(color: Colors.white70),
                 ),
+                if (hasStatistics) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Dữ liệu thống kê: ${statisticsInfo['habitDetails']?.length ?? 0} thói quen có chi tiết',
+                    style: const TextStyle(color: Colors.green),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 const Text(
-                  'Việc nhập dữ liệu sẽ ghi đè lên cài đặt hiện tại. Bạn có muốn tiếp tục?',
+                  'Việc nhập dữ liệu sẽ ghi đè lên cài đặt hiện tại và tự động cập nhật giao diện. Bạn có muốn tiếp tục?',
                   style: TextStyle(color: Colors.orange),
                 ),
               ],
@@ -1246,7 +1300,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             barrierDismissible: false,
             builder: (context) => const AlertDialog(
               backgroundColor: Color(0xFF2A2A2A),
-              content: Row(
+              content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   CircularProgressIndicator(color: Color(0xFFE91E63)),
@@ -1287,11 +1341,55 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             await _storageService.saveHabitColor(userSettings['habitColor']);
           }
 
-          // Note: Importing habits would require API endpoints to create habits
-          // For now, we only import user settings
+          // Import habits if available
+          if (importData['habits'] != null && importData['habits'].isNotEmpty) {
+            try {
+              final habits = importData['habits'] as List;
+              for (final habitData in habits) {
+                try {
+                  // Create habit via API using CreateHabitModel
+                  final createHabitModel = CreateHabitModel(
+                    name: habitData['name'] ?? '',
+                    description: habitData['description'],
+                    categoryId: habitData['category']?['id'] ?? 1,
+                    startDate: habitData['startDate'] != null 
+                      ? DateTime.parse(habitData['startDate'])
+                      : DateTime.now(),
+                    endDate: habitData['endDate'] != null 
+                      ? DateTime.parse(habitData['endDate']) 
+                      : null,
+                    frequency: habitData['frequency'] ?? 'daily',
+                    hasReminder: habitData['hasReminder'] ?? false,
+                    reminderTime: habitData['reminderTime'] != null 
+                      ? Duration(
+                          hours: int.parse(habitData['reminderTime'].split(':')[0]),
+                          minutes: int.parse(habitData['reminderTime'].split(':')[1])
+                        )
+                      : null,
+                    reminderType: habitData['reminderType'],
+                  );
+                  
+                  await _habitApiService.createHabit(createHabitModel);
+                } catch (e) {
+                  print('Error importing habit ${habitData['name']}: $e');
+                  // Continue with other habits even if one fails
+                }
+              }
+            } catch (e) {
+              print('Error importing habits: $e');
+            }
+          }
+
+          // Reload all data to update UI
+          await _loadUserData();
+          await _loadSettings();
+          await _loadBiometricSettings();
+          
+          // Update UI state
+          setState(() {});
           
           Navigator.pop(context); // Close loading
-          _showSuccessSnackBar('Đã nhập cài đặt thành công. Khởi động lại ứng dụng để áp dụng thay đổi.');
+          _showSuccessSnackBar('Đã nhập dữ liệu thành công! Tất cả thông tin đã được cập nhật.');
         }
       }
     } catch (e) {
@@ -1394,7 +1492,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           children: [
             CircularProgressIndicator(color: Color(0xFFE91E63)),
             SizedBox(height: 16),
-            Text('Đang xóa tất cả dữ liệu...', style: TextStyle(color: Colors.white)),
+            Text('Đang xóa dữ liệu thói quen...', style: TextStyle(color: Colors.white)),
           ],
         ),
       ),
@@ -1411,48 +1509,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         }
       }
 
-      // Clear all local storage
-      await _storageService.clearAll();
+      // Note: We don't clear all local storage anymore, only habit-related data
+      // User settings, authentication, and preferences are preserved
 
       // Close loading dialog
       Navigator.pop(context);
 
-      // Show final confirmation dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          backgroundColor: const Color(0xFF2A2A2A),
-          title: Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.green, size: 28),
-              const SizedBox(width: 8),
-              const Text('Hoàn tất', style: TextStyle(color: Colors.green)),
-            ],
-          ),
-          content: const Text(
-            'Tất cả dữ liệu đã được xóa thành công. Ứng dụng sẽ đăng xuất và quay về màn hình đăng nhập.',
-            style: TextStyle(color: Colors.white70),
-          ),
-          actions: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE91E63)),
-              onPressed: () async {
-                Navigator.pop(context);
-                // Đăng xuất sử dụng AuthProvider
-                await ref.read(authProvider.notifier).logout();
-                // Navigate to login and clear all routes
-                if (mounted) {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  );
-                }
-              },
-              child: const Text('Đồng ý', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
-      );
+      // Show success message
+      _showSuccessSnackBar('Đã xóa tất cả thói quen thành công! Cài đặt cá nhân được giữ nguyên.');
 
     } catch (e) {
       // Close loading dialog if still open
@@ -1460,7 +1524,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         Navigator.pop(context);
       }
       
-      _showErrorSnackBar('Lỗi khi xóa dữ liệu: $e');
+      _showErrorSnackBar('Lỗi khi xóa dữ liệu thói quen: $e');
     }
   }
 
