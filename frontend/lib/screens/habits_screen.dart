@@ -82,6 +82,7 @@ class HabitsScreenState extends ConsumerState<HabitsScreen> {
     final DateTime dateOnlySelectedLocal = DateUtils.dateOnly(selectedDateLocal);
     final DateTime todayLocal = DateUtils.dateOnly(DateTime.now());
 
+    // Kiểm tra không thể hoàn thành cho ngày tương lai
     if (dateOnlySelectedLocal.isAfter(todayLocal)) {
       if (!mounted) return; 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -90,7 +91,24 @@ class HabitsScreenState extends ConsumerState<HabitsScreen> {
       return;
     }
 
-    final DateTime completionTimeUtc = dateOnlySelectedLocal.toUtc();
+    // Kiểm tra không thể hoàn thành cho ngày quá khứ (chỉ cho phép hôm nay)
+    if (dateOnlySelectedLocal.isBefore(todayLocal)) {
+      if (!mounted) return; 
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không thể đánh dấu cho ngày trong quá khứ')),
+      );
+      return;
+    }
+
+    // SỬA LỖI: Tạo UTC datetime với cùng ngày thay vì chuyển đổi timezone
+    final DateTime completionTimeUtc = DateTime.utc(
+      dateOnlySelectedLocal.year,
+      dateOnlySelectedLocal.month, 
+      dateOnlySelectedLocal.day,
+      12, // Đặt giờ là 12:00 UTC để tránh lỗi timezone
+      0,
+      0
+    );
     debugPrint("[UI ACTION] Request complete/uncomplete for habit ${habit.id} on date (Local): ${dateOnlySelectedLocal.toIso8601String()} -> (UTC): ${completionTimeUtc.toIso8601String()}");
 
     bool isAlreadyDone = habit.completionDates.any((doneDateUtc) {
@@ -274,6 +292,7 @@ class HabitsScreenState extends ConsumerState<HabitsScreen> {
         return DateUtils.isSameDay(doneDateLocal, todayLocal);
     });
 
+    // Tính toán tuần bắt đầu từ Thứ 2 (Monday = 1)
     DateTime startOfWeek = todayLocal.subtract(Duration(days: todayLocal.weekday - 1));
     DateTime endOfWeek = startOfWeek.add(const Duration(days: 6));
 
@@ -347,11 +366,15 @@ class HabitsScreenState extends ConsumerState<HabitsScreen> {
               ),
               itemBuilder: (context, dateLocal, isSelected, isTodayNullable) {
                   final DateTime dateDtLocal = DateUtils.dateOnly(dateLocal);
-                   final bool isToday = isTodayNullable == true;
+                  final DateTime todayLocal = DateUtils.dateOnly(DateTime.now());
+                  final bool isToday = isTodayNullable == true;
+                  final bool isPastDate = dateDtLocal.isBefore(todayLocal);
 
+                  // Chỉ hiển thị các ngày trong tuần hiện tại (T2-CN)
                   if (dateDtLocal.isBefore(startOfWeek) || dateDtLocal.isAfter(endOfWeek)) {
                     return const SizedBox.shrink();
                   }
+                  
                   bool isDone = doneDatesUtc.any((doneDateUtc) {
                       final doneDateLocal = doneDateUtc.toLocal();
                       return DateUtils.isSameDay(doneDateLocal, dateDtLocal);
@@ -363,12 +386,22 @@ class HabitsScreenState extends ConsumerState<HabitsScreen> {
                   FontWeight dayNumWeight = FontWeight.normal;
                   BoxBorder? border;
 
-                  if (isDone) {
+                  // Styling cho ngày quá khứ
+                  if (isPastDate) {
+                    dayNumColor = Colors.grey[600]!;
+                    dayStrColor = Colors.grey[600]!;
+                    if (isDone) {
+                      bgColor = Colors.green.withOpacity(0.2);
+                      dayNumColor = Colors.green[300]!;
+                      dayStrColor = Colors.green[300]!;
+                    }
+                  } else if (isDone) {
                     bgColor = Colors.green.withOpacity(0.3);
                     dayNumColor = Colors.green[200]!;
                     dayStrColor = Colors.green[200]!;
                     dayNumWeight = FontWeight.bold;
                   }
+                  
                   if (isToday) {
                      if (!isDone) {
                         bgColor = Colors.redAccent.withOpacity(0.3);
@@ -380,7 +413,8 @@ class HabitsScreenState extends ConsumerState<HabitsScreen> {
                   }
 
                   return InkWell(
-                     onTap: _isCompletingHabit ? null : () => _completeHabitForDate(habit, dateDtLocal),
+                     // Vô hiệu hóa tap cho ngày quá khứ và khi đang xử lý
+                     onTap: (_isCompletingHabit || isPastDate) ? null : () => _completeHabitForDate(habit, dateDtLocal),
                      borderRadius: BorderRadius.circular(10),
                      child: Container(
                        width: 42, height: 55,

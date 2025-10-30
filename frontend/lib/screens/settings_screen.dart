@@ -195,10 +195,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(LucideIcons.arrowLeft),
-          onPressed: () => Navigator.pop(context),
-        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
