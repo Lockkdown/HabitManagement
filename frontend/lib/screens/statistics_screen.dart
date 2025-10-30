@@ -9,6 +9,7 @@ import '../api/statistics_api_service.dart';
 import '../api/habit_api_service.dart';
 import '../api/habit_completion_api_service.dart';
 import '../widgets/habit_calendar_popup.dart';
+import '../widgets/touch_ripple_wrapper.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
 /// Màn hình thống kê hiển thị tổng quan và dashboard thói quen
@@ -224,7 +225,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF8F9FA),
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: _isLoading
             ? Center(
@@ -274,16 +275,18 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
 
   Widget _buildHeader() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
-          'Thống kê',
-          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white
-                    : Colors.black87,
-              ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16.0),
+          child: Text(
+            'Thống kê',
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
         ),
         const SizedBox(height: 8),
         Text(
@@ -311,14 +314,14 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     // Tính toán childAspectRatio dựa trên kích thước màn hình
     double aspectRatio;
     if (screenWidth < 360) {
-      // Màn hình nhỏ (< 360dp)
-      aspectRatio = 1.8;
+      // Màn hình nhỏ (< 360dp) - giảm aspectRatio để tăng chiều cao
+      aspectRatio = 1.4;
     } else if (screenWidth < 400) {
-      // Màn hình trung bình (360-400dp)
-      aspectRatio = 1.6;
+      // Màn hình trung bình (360-400dp) - giảm aspectRatio để tăng chiều cao
+      aspectRatio = 1.3;
     } else {
-      // Màn hình lớn (> 400dp)
-      aspectRatio = 1.5;
+      // Màn hình lớn (> 400dp) - giảm aspectRatio để tăng chiều cao
+      aspectRatio = 1.2;
     }
     
     // Tính toán spacing dựa trên kích thước màn hình
@@ -331,30 +334,36 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tổng quan',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : Colors.black87,
-                    letterSpacing: -0.5,
+            Flexible(
+              flex: 1,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Tổng quan',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : Colors.black87,
+                      letterSpacing: -0.5,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Hiệu suất thói quen của bạn',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    letterSpacing: 0.2,
+                  const SizedBox(height: 4),
+                  Text(
+                    'Hiệu suất thói quen của bạn',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      letterSpacing: 0.2,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
+            const SizedBox(width: 8),
             // Today's date badge
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -496,27 +505,27 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
+      child: TouchRippleWrapper(
+        onTap: () => HapticFeedback.lightImpact(),
         borderRadius: BorderRadius.circular(24),
-        child: InkWell(
-          onTap: () => HapticFeedback.lightImpact(),
-          borderRadius: BorderRadius.circular(24),
-          child: Container(
-            padding: EdgeInsets.all(cardPadding), // Sử dụng padding responsive
-            height: cardHeight, // Sử dụng height responsive
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Icon with gradient background
-                Container(
-                  padding: EdgeInsets.all(iconPadding), // Sử dụng padding responsive
-                  decoration: BoxDecoration(
-                    gradient: gradient,
-                    borderRadius: BorderRadius.circular(borderRadius), // Sử dụng borderRadius responsive
-                  ),
+        child: Container(
+          padding: EdgeInsets.all(cardPadding), // Sử dụng padding responsive
+          constraints: BoxConstraints(
+            minHeight: cardHeight, // Sử dụng minHeight thay vì height cố định
+            maxHeight: cardHeight * 1.2, // Cho phép mở rộng một chút
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon with gradient background
+              Container(
+                padding: EdgeInsets.all(iconPadding), // Sử dụng padding responsive
+                decoration: BoxDecoration(
+                  gradient: gradient,
+                  borderRadius: BorderRadius.circular(borderRadius), // Sử dụng borderRadius responsive
+                ),
                   child: Icon(
                     icon,
                     color: Colors.white,
@@ -525,7 +534,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                 ),
                 SizedBox(height: spacingHeight), // Sử dụng spacing responsive
                 // Value and title
-                Expanded( // Thay Flexible bằng Expanded
+                Flexible( // Thay Expanded bằng Flexible để tránh overflow
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min, // Thêm để giảm chiều cao
@@ -566,7 +575,6 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                   ),
                 ),
               ],
-            ),
           ),
         ),
       ),
@@ -700,35 +708,46 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '$activeDays',
-              style: TextStyle(
-                fontSize: 36,
-                fontWeight: FontWeight.w800,
-                color: isDark ? Colors.white : Colors.black87,
-                letterSpacing: -1.5,
-                height: 1,
+        Flexible(
+          flex: 2,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$activeDays',
+                style: TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : Colors.black87,
+                  letterSpacing: -1.5,
+                  height: 1,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            Text(
-              'ngày hoạt động',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.grey[400] : Colors.grey[600],
+              Text(
+                'ngày hoạt động',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-        Text(
-          'của $totalDays ngày',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: isDark ? Colors.grey[400] : Colors.grey[600],
+        const SizedBox(width: 8),
+        Flexible(
+          flex: 1,
+          child: Text(
+            'của $totalDays ngày',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.grey[400] : Colors.grey[600],
+            ),
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.end,
           ),
         ),
       ],
@@ -779,30 +798,36 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Dashboard thói quen',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? Colors.white : Colors.black87,
-                    letterSpacing: -0.5,
+            Flexible(
+              flex: 1,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Dashboard thói quen',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? Colors.white : Colors.black87,
+                      letterSpacing: -0.5,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Theo dõi tiến độ từng thói quen',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
-                    letterSpacing: 0.2,
+                  const SizedBox(height: 4),
+                  Text(
+                    'Theo dõi tiến độ từng thói quen',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      letterSpacing: 0.2,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
+            const SizedBox(width: 8),
             // Habits count badge
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -914,112 +939,108 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
+      child: TouchRippleWrapper(
+        onTap: () {
+          // Show habit calendar popup
+          HapticFeedback.lightImpact();
+          _showHabitCalendarPopup(habit, completions, habitColor);
+        },
         borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          onTap: () {
-            // Show habit calendar popup
-            HapticFeedback.lightImpact();
-            _showHabitCalendarPopup(habit, completions, habitColor);
-          },
-          borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header with icon, name, description, and completion rate
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            habitColor.withOpacity(0.2),
-                            habitColor.withOpacity(0.1),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: habitColor.withOpacity(0.3),
-                          width: 1,
-                        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with icon, name, description, and completion rate
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          habitColor.withOpacity(0.2),
+                          habitColor.withOpacity(0.1),
+                        ],
                       ),
-                      child: Icon(
-                        _getHabitIcon(habit.category.name),
-                        color: habitColor,
-                        size: 24,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: habitColor.withOpacity(0.3),
+                        width: 1,
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                    child: Icon(
+                      _getHabitIcon(habit.category.name),
+                      color: habitColor,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          habit.name,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? Colors.white : Colors.black87,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        if (habit.description?.isNotEmpty == true)
                           Text(
-                            habit.name,
+                            habit.description!,
                             style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: isDark ? Colors.white : Colors.black87,
-                              letterSpacing: -0.5,
+                              fontSize: 14,
+                              color: isDark ? Colors.grey[400] : Colors.grey[600],
+                              height: 1.3,
                             ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 4),
-                          if (habit.description?.isNotEmpty == true)
-                            Text(
-                              habit.description!,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: isDark ? Colors.grey[400] : Colors.grey[600],
-                                height: 1.3,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                      ],
+                    ),
+                  ),
+                  // Completion rate badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          habitColor,
+                          habitColor.withOpacity(0.8),
                         ],
                       ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: habitColor.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    // Completion rate badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            habitColor,
-                            habitColor.withOpacity(0.8),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: habitColor.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Text(
-                        '$completionRate%',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
+                    child: Text(
+                      '$completionRate%',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 16),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
                 
                 // Tile-based grid for habit progress
                 _buildHabitTileGrid(tileData, habitColor, isDark),
-              ],
-            ),
+            ],
           ),
         ),
       ),

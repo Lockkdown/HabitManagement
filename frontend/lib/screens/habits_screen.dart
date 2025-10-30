@@ -215,29 +215,53 @@ class HabitsScreenState extends ConsumerState<HabitsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return const Center(child: CircularProgressIndicator(color: Colors.pink));
+    if (_isLoading) return const SafeArea(child: Center(child: CircularProgressIndicator(color: Colors.pink)));
 
     if (_habits.isEmpty) {
-      return Center(
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(LucideIcons.target, size: 80, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text('Chưa có thói quen nào', style: TextStyle(fontSize: 18, color: Colors.grey[400], fontWeight: FontWeight.w500)),
-          const SizedBox(height: 8),
-          Text('Nhấn nút + để tạo thói quen mới', style: TextStyle(fontSize: 14, color: Colors.grey[500])),
-        ]),
+      return SafeArea(
+        child: Center(
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(LucideIcons.target, size: 80, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text('Chưa có thói quen nào', style: TextStyle(fontSize: 18, color: Colors.grey[400], fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            Text('Nhấn nút + để tạo thói quen mới', style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+          ]),
+        ),
       );
     }
 
-    return RefreshIndicator(
-       onRefresh: loadHabits, // Gọi hàm public
-       color: Colors.pink,
-       backgroundColor: Colors.grey[900],
-       child: ListView.builder(
-         padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-         itemCount: _habits.length,
-         itemBuilder: (context, index) => _buildHabitCard(_habits[index]),
-       ),
+    return SafeArea(
+      child: RefreshIndicator(
+         onRefresh: loadHabits, // Gọi hàm public
+         color: Colors.pink,
+         backgroundColor: Colors.grey[900],
+         child: Column(
+           crossAxisAlignment: CrossAxisAlignment.start,
+           children: [
+             // Tiêu đề "Thói quen"
+             Padding(
+               padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+               child: Text(
+                 'Thói quen',
+                 style: TextStyle(
+                   fontSize: 28,
+                   fontWeight: FontWeight.bold,
+                   color: Colors.white,
+                 ),
+               ),
+             ),
+             // Danh sách thói quen
+             Expanded(
+               child: ListView.builder(
+                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+                 itemCount: _habits.length,
+                 itemBuilder: (context, index) => _buildHabitCard(_habits[index]),
+               ),
+             ),
+           ],
+         ),
+      ),
     );
   }
 

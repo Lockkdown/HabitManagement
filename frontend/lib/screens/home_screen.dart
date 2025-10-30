@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:intl/date_symbol_data_local.dart'; // Vẫn cần
+import 'package:curved_labeled_navigation_bar/curved_navigation_bar.dart';
+import 'package:curved_labeled_navigation_bar/curved_navigation_bar_item.dart';
 
 // Import các màn hình con
 import 'habits_screen.dart'; // <<< IMPORT FILE MỚI
@@ -10,6 +12,7 @@ import 'statistics_screen.dart';
 import 'settings_screen.dart';
 import 'login_screen.dart';
 import 'create_habit_screen.dart'; // Vẫn cần cho FloatingActionButton
+import 'chatbot_screen.dart'; // Import ChatbotScreen
 
 // Import services và providers
 import '../services/storage_service.dart';
@@ -81,27 +84,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     return Scaffold(
-       appBar: AppBar( 
-         leading: IconButton(
-           icon: const Icon(LucideIcons.settings),
-           onPressed: () {
-             Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsScreen()),);
-           },
-         ),
-         title: Text(_getAppBarTitle(_selectedIndex)),
-         backgroundColor: Colors.transparent, elevation: 0,
-         actions: [
-           IconButton(
-             icon: const Icon(LucideIcons.logOut),
-             onPressed: () async {
-                _handleLogout();
-             },
-           ),
-         ],
-       ),
        body: _buildBody(),
        bottomNavigationBar: _buildBottomNavigationBar(),
-       floatingActionButton: _selectedIndex == 1
+       floatingActionButton: _selectedIndex == 2
           ? FloatingActionButton(
               onPressed: () async {
                 final result = await Navigator.push<bool>(
@@ -126,42 +111,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-   String _getAppBarTitle(int index) {
-     switch (index) {
-       case 0: return 'Lịch trình hôm nay';
-       case 1: return 'Thói quen';
-       case 2: return 'Thống kê';
-       default: return 'Thói quen';
-     }
-   }
-
-   Future<void> _handleLogout() async {
-     final confirm = await showDialog<bool>(
-       context: context,
-       builder: (context) => AlertDialog(
-         backgroundColor: Colors.grey[850],
-         title: const Text('Đăng xuất', style: TextStyle(color: Colors.white)),
-         content: const Text('Bạn có chắc muốn đăng xuất?', style: TextStyle(color: Colors.white70)),
-         actions: [
-           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
-           ElevatedButton(
-             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-             onPressed: () => Navigator.pop(context, true), child: const Text('Đăng xuất'),
-           ),
-         ],
-       ),
-     );
-     if (confirm == true) {
-       await ref.read(authProvider.notifier).logout();
-       if (mounted) {
-         Navigator.of(context).pushAndRemoveUntil(
-           MaterialPageRoute(builder: (context) => const LoginScreen()),
-           (route) => false,
-         );
-       }
-     }
-   }
-
   Widget _buildBody() {
      if (currentUserId == null) {
         return const Center(child: CircularProgressIndicator(color: Colors.pink));
@@ -173,11 +122,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // ==========================================================
       // <<< BƯỚC 2: GẮN GLOBALKEY VÀO WIDGET >>>
       // ==========================================================
-      case 1: return HabitsScreen(
+      case 1: return const StatisticsScreen();
+      case 2: return HabitsScreen(
                 key: _habitsScreenKey, // <<< GẮN CHÌA KHÓA
                 userId: currentUserId!
               );
-      case 2: return const StatisticsScreen();
+      case 3: return const ChatbotScreen(); // Thêm ChatbotScreen
+      case 4: return const SettingsScreen(); // Thêm SettingsScreen
       default: return HabitsScreen(
                  key: _habitsScreenKey, // <<< GẮN CHÌA KHÓA
                  userId: currentUserId!
@@ -199,21 +150,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildBottomNavigationBar() {
-    return BottomNavigationBar(
-      currentIndex: _selectedIndex,
+    return CurvedNavigationBar(
+      index: _selectedIndex,
       onTap: (index) {
         if (_selectedIndex != index) {
           setState(() => _selectedIndex = index);
         }
       },
-      backgroundColor: Colors.grey[900],
-      selectedItemColor: Colors.pink,
-      unselectedItemColor: Colors.grey[600],
-      type: BottomNavigationBarType.fixed,
+      backgroundColor: Colors.black,
+      color: Colors.grey[900]!,
+      buttonBackgroundColor: Colors.pink,
+      height: 65,
+      animationDuration: const Duration(milliseconds: 300),
+      animationCurve: Curves.easeInOut,
       items: const [
-        BottomNavigationBarItem(icon: Icon(LucideIcons.calendar), label: 'Hôm nay'),
-        BottomNavigationBarItem(icon: Icon(LucideIcons.target), label: 'Thói quen'),
-        BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'Thống kê'),
+        CurvedNavigationBarItem(
+          child: Icon(LucideIcons.calendar, color: Colors.white),
+          label: 'Hôm nay',
+          labelStyle: TextStyle(color: Colors.white, fontSize: 12),
+        ),
+        CurvedNavigationBarItem(
+          child: Icon(Icons.bar_chart, color: Colors.white),
+          label: 'Thống kê',
+          labelStyle: TextStyle(color: Colors.white, fontSize: 12),
+        ),
+        CurvedNavigationBarItem(
+          child: Icon(LucideIcons.target, color: Colors.white),
+          label: 'Thói quen',
+          labelStyle: TextStyle(color: Colors.white, fontSize: 12),
+        ),
+        CurvedNavigationBarItem(
+          child: Icon(Icons.smart_toy, color: Colors.white),
+          label: 'Trợ lý AI',
+          labelStyle: TextStyle(color: Colors.white, fontSize: 12),
+        ),
+        CurvedNavigationBarItem(
+          child: Icon(LucideIcons.settings, color: Colors.white),
+          label: 'Cài đặt',
+          labelStyle: TextStyle(color: Colors.white, fontSize: 12),
+        ),
       ],
     );
   }

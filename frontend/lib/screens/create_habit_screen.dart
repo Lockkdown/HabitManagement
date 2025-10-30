@@ -46,7 +46,15 @@ class _CreateHabitScreenState extends ConsumerState<CreateHabitScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tạo thói quen'),
+        title: const Text(
+          'Tạo thói quen',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [

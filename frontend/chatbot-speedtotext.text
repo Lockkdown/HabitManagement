@@ -1,0 +1,118 @@
+chatbot để hỗ trợ người dùng
+'create_habit': VD tạo thói quen học tiếng anh mỗi tối => xác định name là học tiếng anh , xác định category bằng _categoryKeywords, xác đinh tầng suất frequency là daily weekly, monthly để lưu, StartDate sẽ là giờ hiện tại luu ý là
++ nếu là delete habit thì chỉ cần gọi delete sevice của habit + nếu là xem habit của hôm nay => mở giao diện habits_chedule_screen 
++ nếu là xem habit của ngày trong tuần thì sử dụng GetHabitsDueTodayAsync ở HabitScheduleService 
+Nếu rơi vào các chức năng open_statistics open_settings thì chỉ cần mở giao diện screen tương ứng
+final Map<String, List<String>> _intentKeywords = {
+    'create_habit': ['tạo', 'thêm', 'thói quen', 'habit', 'lập', 'thói quen mới'],
+    'view_habits_today': ['xem thói quen hôm nay', 'thói quen hôm nay', 'lịch hôm nay'],
+    'view_habits_date': ['xem thói quen', 'thói quen', 'lịch', 'thứ', 'ngày', 'tuần sau', 'tuần tới'],
+    'view_all_habits': ['xem tất cả', 'tất cả thói quen', 'danh sách thói quen', 'liệt kê thói quen'],
+    'delete_habit': ['xóa thói quen', 'xóa', 'hủy thói quen', 'loại bỏ thói quen'],
+    'open_statistics': ['thống kê', 'xem thống kê', 'báo cáo', 'tiến độ', 'mở thống kê'],
+    'open_settings': ['cài đặt', 'thiết lập', 'tùy chọn', 'mở cài đặt'],
+    'help': ['giúp', 'hướng dẫn', 'help', 'trợ giúp', 'cách dùng'],
+  };
+
+  final Map<String, List<String>> _categoryKeywords = {
+    // 🫀 SỨC KHỎE
+    'Sức khỏe': [
+      'sức khỏe', 'chăm sóc sức khỏe', 'tập thể dục', 'vận động', 'chạy bộ',
+      'đi bộ', 'uống nước', 'ăn uống lành mạnh', 'ăn uống khoa học',
+      'giảm cân', 'giữ dáng', 'giảm mỡ', 'tăng cơ', 'ngủ sớm',
+      'ngủ đủ giấc', 'thiền', 'tập yoga', 'hít thở sâu', 'ăn sáng đầy đủ',
+      'không thức khuya', 'ăn rau', 'không ăn khuya', 'kiểm tra sức khỏe',
+      'uống vitamin', 'không hút thuốc', 'hạn chế cà phê', 'uống nước chanh',
+      'tập thể hình', 'chạy bộ sáng', 'đi gym', 'thư giãn cơ thể',
+    ],
+
+    //  HỌC TẬP
+    'Học tập': [
+      'học', 'học bài', 'ôn bài', 'ôn thi', 'đọc sách', 'đọc báo', 'tự học',
+      'tiếng anh', 'tiếng nhật', 'tiếng hàn', 'tiếng trung', 'luyện nghe',
+      'luyện nói', 'luyện đọc', 'học từ vựng', 'viết luận', 'học lập trình',
+      'làm bài tập', 'học online', 'xem video học', 'nghiên cứu', 'tìm hiểu',
+      'học kỹ năng', 'học thêm', 'tham gia khóa học', 'viết nhật ký học tập',
+    ],
+
+    //  CÔNG VIỆC
+    'Công việc': [
+      'công việc', 'làm việc', 'đi làm', 'viết báo cáo', 'kiểm tra email',
+      'gửi mail', 'họp', 'meeting', 'dự án', 'deadline', 'nhiệm vụ', 'task',
+      'xem kế hoạch', 'tổ chức công việc', 'sắp xếp lịch làm việc',
+      'quản lý thời gian', 'ghi chú công việc', 'lên kế hoạch',
+      'chuẩn bị cho công việc', 'học kỹ năng mềm', 'nâng cao chuyên môn',
+    ],
+
+    //  THỂ THAO
+    'Thể thao': [
+      'thể thao', 'bóng đá', 'bóng rổ', 'cầu lông', 'bơi', 'gym', 'chạy',
+      'đạp xe', 'leo núi', 'tennis', 'bóng chuyền', 'bóng bàn', 'đi bộ nhanh',
+      'tập gym', 'đánh golf', 'tập luyện', 'rèn luyện thể lực', 'thể hình',
+
+
+'tập cardio', 'tập yoga thể thao', 'thử thách 30 ngày', 'tập plank',
+      'chạy marathon', 'đi bộ buổi sáng', 'khởi động cơ thể', 'thể dục sáng',
+    ],
+
+    //  GIẢI TRÍ
+    'Giải trí': [
+      'giải trí', 'xem phim', 'xem youtube', 'xem tivi', 'nghe nhạc', 'chơi game',
+      'đi chơi', 'đi dạo', 'đi du lịch', 'đi cà phê', 'xem show', 'ngủ trưa',
+      'xem livestream', 'vẽ tranh', 'chụp ảnh', 'lướt mạng', 'xem mạng xã hội',
+      'đọc truyện', 'nghe podcast', 'đi xem phim', 'xem hài', 'thư giãn',
+      'ngắm cảnh', 'xem thể thao', 'nghỉ ngơi', 'chơi đàn', 'xem video giải trí',
+    ],
+
+    //  GIA ĐÌNH
+    'Gia đình': [
+      'gia đình', 'bố mẹ', 'cha mẹ', 'gọi điện cho mẹ', 'gọi điện cho bố',
+      'chăm con', 'đón con', 'nấu ăn', 'nấu cơm', 'dọn nhà', 'lau nhà',
+      'giặt đồ', 'rửa bát', 'ăn tối cùng gia đình', 'chăm sóc người thân',
+      'gặp gia đình', 'nói chuyện với người thân', 'thăm ông bà', 'thăm bố mẹ',
+      'làm việc nhà', 'chăm sóc thú cưng', 'mua sắm gia đình', 'chuẩn bị bữa ăn',
+    ],
+
+    //  KHÁC
+    'Khác': [
+      'thói quen khác', 'việc khác', 'tùy chỉnh', 'ngẫu nhiên', 'random',
+      'linh tinh', 'không xác định', 'khác', 'chung chung', 'thử cái mới',
+    ],
+  };
+
+  final Map<String, List<String>> _responseTemplates = {
+    'greeting': [
+      'Xin chào! Tôi có thể giúp gì cho bạn?',
+      'Chào bạn! Bạn cần tôi hỗ trợ gì không?',
+      'Tôi đang lắng nghe. Bạn cần giúp đỡ gì?'
+    ],
+    'create_habit_success': [
+      'Đã tạo thói quen "{habit_name}" thành công!',
+      'Thói quen "{habit_name}" đã được thêm vào danh sách của bạn.',
+      'Tôi đã tạo thói quen "{habit_name}" cho bạn rồi nhé!'
+    ],
+    'create_habit_fail': [
+      'Xin lỗi, tôi không thể tạo thói quen. Vui lòng thử lại.',
+      'Có lỗi xảy ra khi tạo thói quen. Bạn có thể cung cấp thêm thông tin không?',
+      'Tôi gặp vấn đề khi tạo thói quen. Hãy thử lại với thông tin cụ thể hơn.'
+    ],
+    'logout_confirm': [
+      'Bạn có chắc muốn đăng xuất không?',
+      'Xác nhận đăng xuất khỏi tài khoản?',
+      'Bạn muốn đăng xuất phải không?'
+    ],
+    'help': [
+      'Tôi có thể giúp bạn:\n- Tạo thói quen mới\n- Xem danh sách thói quen\n- Đăng xuất\nHãy nói hoặc nhập yêu cầu của bạn.',
+      'Bạn có thể yêu cầu tôi:\n- "Tạo thói quen học tiếng Anh vào thứ 2, 4, 7"\n- "Xem danh sách thói quen"\n- "Đăng xuất"',
+      'Một số câu lệnh bạn có thể dùng:\n- "Tạo thói quen đọc sách mỗi tối"\n- "Xem các thói quen của tôi"\n- "Đăng xuất tài khoản"'
+    ],
+    'fallback': [
+'Xin lỗi, tôi không hiểu yêu cầu của bạn. Bạn có thể nói rõ hơn được không?',
+      'Tôi chưa hiểu ý bạn. Bạn có thể diễn đạt theo cách khác không?',
+      'Tôi không chắc mình hiểu đúng. Bạn có thể nói lại được không?'
+    ]
+  };
+đây là final map
+Khó nhất ở phần tạo createhabit
+Chỗ này cần kêu chat tham chiếu dto rõ ràng vs xem lại logic bên HabitController để xem frequency [daily,weekly,monthly] xử lý như nào
+Thêm speed totext để sử dụng giọng nó
