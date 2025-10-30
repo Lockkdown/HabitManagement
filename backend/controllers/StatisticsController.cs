@@ -45,28 +45,54 @@ public class StatisticsController : ControllerBase
                 .Where(h => h.UserId == userId && h.IsActive)
                 .ToListAsync();
 
+            Console.WriteLine($"=== STATISTICS DEBUG ===");
+            Console.WriteLine($"UserId: {userId}");
+            Console.WriteLine($"Total active habits: {habits.Count}");
+            
+            foreach (var habit in habits)
+            {
+                Console.WriteLine($"Habit {habit.Id} '{habit.Name}': {habit.CompletionDates.Count} completions");
+                foreach (var completion in habit.CompletionDates.Take(5))
+                {
+                    Console.WriteLine($"  - Completed at: {completion.CompletedAt} (UTC)");
+                }
+            }
+
             var totalHabits = habits.Count;
-            var currentDate = DateTime.UtcNow.Date;
+            // FIX CRITICAL: Dùng local time thay vì UTC để tránh timezone issue
+            // VN (UTC+7): 31/10 05:59 → UTC: 30/10 22:59 → .Date = 30/10 (SAI!)
+            var currentDate = DateTime.Now.Date; // Local time
             var currentMonth = new DateTime(currentDate.Year, currentDate.Month, 1);
             var daysInMonth = DateTime.DaysInMonth(currentDate.Year, currentDate.Month);
+            
+            Console.WriteLine($"Current Date (LOCAL): {currentDate}");
+            Console.WriteLine($"Current Date (UTC): {DateTime.UtcNow.Date}");
+            Console.WriteLine($"Current Month Start: {currentMonth}");
 
             double completionRate = 0.0;
+            double totalPossibleCompletionsInMonth = 0.0;
+            int totalActualCompletionsInMonth = 0;
 
             if (totalHabits > 0)
             {
-                double totalPossibleCompletionsInMonth = 0.0;
-                int totalActualCompletionsInMonth = 0;
 
                 foreach (var habit in habits)
                 {
                     var habitStartDate = habit.StartDate.Date;
-                    var habitEndDate = habit.EndDate?.Date ?? currentDate;
+                    // FIX CRITICAL: Không giới hạn habitEndDate bởi currentDate
+                    // Vì currentDate có thể là hôm qua (timezone issue)
+                    var habitEndDate = habit.EndDate?.Date ?? DateTime.MaxValue.Date;
 
                     var firstDayOfMonth = currentMonth;
                     var lastDayOfMonth = currentMonth.AddMonths(1).AddDays(-1);
 
                     var periodStart = habitStartDate > firstDayOfMonth ? habitStartDate : firstDayOfMonth;
                     var periodEnd = habitEndDate < lastDayOfMonth ? habitEndDate : lastDayOfMonth;
+
+                    Console.WriteLine($"Habit {habit.Id} '{habit.Name}':");
+                    Console.WriteLine($"  StartDate: {habitStartDate}, EndDate: {habitEndDate}");
+                    Console.WriteLine($"  Period: {periodStart} -> {periodEnd}");
+                    Console.WriteLine($"  Frequency: {habit.Frequency}");
 
                     if (periodStart <= periodEnd)
                     {
@@ -114,10 +140,19 @@ public class StatisticsController : ControllerBase
 
                         totalPossibleCompletionsInMonth += possibleCompletions;
 
+                        // FIX: Chỉ đếm completions TRONG period (từ periodStart -> periodEnd)
+                        // Không đếm completions trước StartDate hoặc sau EndDate
                         var completionsInMonth = habit.CompletionDates
-                            .Count(c => c.CompletedAt.Date >= firstDayOfMonth && c.CompletedAt.Date <= lastDayOfMonth);
+                            .Count(c => c.CompletedAt.Date >= periodStart && c.CompletedAt.Date <= periodEnd);
+
+                        Console.WriteLine($"  Possible completions: {possibleCompletions}");
+                        Console.WriteLine($"  Actual completions in period: {completionsInMonth}");
 
                         totalActualCompletionsInMonth += completionsInMonth;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"  SKIPPED: periodStart > periodEnd");
                     }
                 }
 
@@ -125,16 +160,28 @@ public class StatisticsController : ControllerBase
                 {
                     completionRate = (double)totalActualCompletionsInMonth / totalPossibleCompletionsInMonth * 100;
                     completionRate = Math.Min(completionRate, 100.0);
+                } else {
+                    Console.WriteLine("WARNING: totalPossibleCompletionsInMonth is 0!");
                 }
+            } else {
+                Console.WriteLine("No habits found or totalHabits is 0");
             }
 
             var currentStreak = CalculateCurrentStreak(habits, currentDate);
             var longestStreak = CalculateLongestStreak(habits);
+            
+            Console.WriteLine($"Completion Rate: {completionRate:F1}%");
+            Console.WriteLine($"Current Streak: {currentStreak}");
+            Console.WriteLine($"Longest Streak: {longestStreak}");
+            Console.WriteLine($"Total Actual Completions in Month: {totalActualCompletionsInMonth}");
+            Console.WriteLine($"Total Possible Completions in Month: {totalPossibleCompletionsInMonth}");
+            Console.WriteLine($"=========================");
 
+            // FIX: Convert UTC to Local time trước khi đếm active days
             var activeDaysInMonth = habits
                 .SelectMany(h => h.CompletionDates)
-                .Where(c => c.CompletedAt.Date >= currentMonth && c.CompletedAt.Date <= currentDate)
-                .Select(c => c.CompletedAt.Date)
+                .Select(c => c.CompletedAt.ToLocalTime().Date)
+                .Where(d => d >= currentMonth && d <= currentDate)
                 .Distinct()
                 .Count();
 
@@ -166,7 +213,8 @@ public class StatisticsController : ControllerBase
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized();
 
-            var endDate = DateTime.UtcNow.Date;
+            // FIX: Dùng local time để tránh timezone issue
+            var endDate = DateTime.Now.Date;
             var startDate = endDate.AddDays(-days + 1);
 
             var habits = await _context.Habits
@@ -216,7 +264,8 @@ public class StatisticsController : ControllerBase
             if (habit == null)
                 return NotFound(new { message = "Không tìm thấy thói quen" });
 
-            var endDate = DateTime.UtcNow.Date;
+            // FIX: Dùng local time để tránh timezone issue
+            var endDate = DateTime.Now.Date;
             var startDate = endDate.AddDays(-days + 1);
 
             var completionData = GenerateHeatmapData(habit, startDate, endDate);
@@ -255,9 +304,10 @@ public class StatisticsController : ControllerBase
 
     private int CalculateCurrentStreak(List<Habit> habits, DateTime currentDate)
     {
+        // FIX: Convert UTC to Local time trước khi lấy .Date
         var allCompletionDates = habits
             .SelectMany(h => h.CompletionDates)
-            .Select(c => c.CompletedAt.Date)
+            .Select(c => c.CompletedAt.ToLocalTime().Date)
             .Distinct()
             .OrderByDescending(d => d)
             .ToList();
@@ -282,9 +332,10 @@ public class StatisticsController : ControllerBase
 
     private int CalculateLongestStreak(List<Habit> habits)
     {
+        // FIX: Convert UTC to Local time trước khi lấy .Date
         var allCompletionDates = habits
             .SelectMany(h => h.CompletionDates)
-            .Select(c => c.CompletedAt.Date)
+            .Select(c => c.CompletedAt.ToLocalTime().Date)
             .Distinct()
             .OrderBy(d => d)
             .ToList();
@@ -310,8 +361,9 @@ public class StatisticsController : ControllerBase
 
     private int CalculateHabitCurrentStreak(Habit habit, DateTime currentDate)
     {
+        // FIX: Convert UTC to Local time
         var completionDates = habit.CompletionDates
-            .Select(c => c.CompletedAt.Date)
+            .Select(c => c.CompletedAt.ToLocalTime().Date)
             .Distinct()
             .OrderByDescending(d => d)
             .ToList();
@@ -336,8 +388,9 @@ public class StatisticsController : ControllerBase
 
     private int CalculateHabitLongestStreak(Habit habit)
     {
+        // FIX: Convert UTC to Local time
         var completionDates = habit.CompletionDates
-            .Select(c => c.CompletedAt.Date)
+            .Select(c => c.CompletedAt.ToLocalTime().Date)
             .Distinct()
             .OrderBy(d => d)
             .ToList();
@@ -363,9 +416,10 @@ public class StatisticsController : ControllerBase
 
     private List<object> GenerateHeatmapData(Habit habit, DateTime startDate, DateTime endDate)
     {
+        // FIX: Convert UTC to Local time cho heatmap
         var completionDates = habit.CompletionDates
-            .Where(c => c.CompletedAt.Date >= startDate && c.CompletedAt.Date <= endDate)
-            .Select(c => c.CompletedAt.Date)
+            .Select(c => c.CompletedAt.ToLocalTime().Date)
+            .Where(d => d >= startDate && d <= endDate)
             .ToHashSet();
 
         var heatmapData = new List<object>();

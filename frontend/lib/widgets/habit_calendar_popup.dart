@@ -184,13 +184,12 @@ class _HabitCalendarPopupState extends State<HabitCalendarPopup> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
-                .map((day) => SizedBox(
-                      width: 36, // Giảm width
+                .map((day) => Expanded(
                       child: Text(
                         day,
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 11, // Giảm font size
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: isDark ? Colors.grey[400] : Colors.grey[600],
                         ),

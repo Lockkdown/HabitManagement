@@ -1408,34 +1408,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       barrierDismissible: false, // Prevent dismissing by tapping outside
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          // Sử dụng controller.text để lấy giá trị hiện tại
-          final confirmText = confirmController.text.trim();
-          final isConfirmValid = confirmText == 'XÓA TẤT CẢ';
-          
-          return AlertDialog(
-            backgroundColor: const Color(0xFF2A2A2A),
-            title: Row(
-              children: [
-                Icon(Icons.warning, color: Colors.red, size: 28),
-                const SizedBox(width: 8),
-                const Text('Xóa tất cả thói quen', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            content: Column(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: const Color(0xFF2A2A2A),
+          title: Row(
+            children: [
+              Icon(Icons.warning, color: Colors.red, size: 28),
+              const SizedBox(width: 8),
+              const Text('Xóa tất cả dữ liệu', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  '⚠️ CẢNH BÁO: Hành động này sẽ xóa vĩnh viễn tất cả dữ liệu thói quen bao gồm:',
+                  '⚠️ CẢNH BÁO: Hành động này sẽ xóa vĩnh viễn tất cả dữ liệu bao gồm:',
                   style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 12),
                 const Text(
                   '• Tất cả thói quen và lịch sử hoàn thành\n'
+                  '• Thông tin cá nhân và cài đặt\n'
                   '• Dữ liệu thống kê và báo cáo\n'
-                  '• Tiến trình và streak của các thói quen\n\n'
-                  'Lưu ý: Cài đặt cá nhân và thông tin tài khoản sẽ được giữ nguyên.',
+                  '• Tất cả cài đặt tùy chỉnh',
                   style: TextStyle(color: Colors.white70),
                 ),
                 const SizedBox(height: 16),
@@ -1457,29 +1453,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       borderSide: BorderSide(color: Colors.red, width: 2),
                     ),
                   ),
-                  onChanged: (value) {
-                    setDialogState(() {}); // Chỉ cần rebuild UI
-                  },
+                  onChanged: (value) => setState(() {}),
                 ),
               ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Hủy', style: TextStyle(color: Colors.white70)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Hủy', style: TextStyle(color: Colors.white70)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: confirmController.text == 'XÓA TẤT CẢ' ? Colors.red : Colors.grey,
               ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isConfirmValid ? Colors.red : Colors.grey,
-                ),
-                onPressed: isConfirmValid 
-                  ? () => _performDeleteAllData(context)
-                  : null,
-                child: const Text('Xóa thói quen', style: TextStyle(color: Colors.white)),
-              ),
-            ],
-          );
-        },
+              onPressed: confirmController.text == 'XÓA TẤT CẢ' 
+                ? () => _performDeleteAllData(context)
+                : null,
+              child: const Text('Xóa tất cả', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -138,12 +138,26 @@ class HabitApiService {
         headers: await _getHeaders(),
       );
 
-      if (response.statusCode != 204) { // 204 No Content
-          debugPrint('Error deleting category $id (${response.statusCode}): ${response.body}');
+      if (response.statusCode == 400) {
+        // Lỗi 400: Parse message từ backend
+        debugPrint('Cannot delete category $id (400): ${response.body}');
+        String errorMessage = 'Không thể xóa danh mục này';
+        try {
+          final errorData = json.decode(response.body);
+          errorMessage = errorData['message'] ?? errorMessage;
+        } catch (parseError) {
+          debugPrint('Failed to parse error message: $parseError');
+        }
+        throw Exception(errorMessage);
+      } else if (response.statusCode != 204) { // 204 No Content
+        debugPrint('Error deleting category $id (${response.statusCode}): ${response.body}');
         throw Exception('Lỗi khi xóa danh mục: ${response.statusCode}');
       }
     } catch (e) {
-        debugPrint('Connection error deleting category $id: $e');
+      if (e is Exception) {
+        rethrow; // Giữ nguyên Exception message từ trên
+      }
+      debugPrint('Connection error deleting category $id: $e');
       throw Exception('Lỗi kết nối: $e');
     }
   }

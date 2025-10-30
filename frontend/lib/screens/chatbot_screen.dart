@@ -40,6 +40,7 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
   final ChatbotService _chatbotService = ChatbotService();
   final TextEditingController _textController = TextEditingController();
   bool _isTyping = false;
+  String _listeningText = ''; // Text đang nghe từ mic
 
   @override
   void initState() {
@@ -61,36 +62,55 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
       _speechEnabled = await _speech.initialize(
         onError: (error) {
           print('Speech recognition error: $error');
-          setState(() {
-            _isListening = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Lỗi nhận diện giọng nói: ${error.errorMsg}')),
-          );
-        },
-        onStatus: (status) {
-          print('Speech recognition status: $status');
-          if (status == 'done' || status == 'notListening') {
+          if (mounted) {
             setState(() {
               _isListening = false;
+              _listeningText = '';
             });
+            // FIX: Chỉ hiển thị lỗi nếu không phải "no_match" (người dùng chưa nói)
+            if (error.errorMsg != 'error_no_match') {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Lỗi nhận diện giọng nói: ${error.errorMsg}')),
+                  );
+                }
+              });
+            }
+          }
+        },onStatus: (status) {
+          print('Speech recognition status: $status');
+          if (status == 'done' || status == 'notListening') {
+            if (mounted) {
+              setState(() {
+                _isListening = false;
+                _listeningText = '';
+              });
+            }
           }
         },
       );
       
       print('Speech initialized: $_speechEnabled');
       
-      if (!_speechEnabled) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Không thể khởi tạo tính năng nhận diện giọng nói')),
-        );
+      // FIX: Dùng addPostFrameCallback thay vì gọi trực tiếp trong initState
+      if (!_speechEnabled && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Không thể khởi tạo tính năng nhận diện giọng nói')),
+            );
+          }
+        });
       }
     } catch (e) {
       print('Error initializing speech: $e');
       _speechEnabled = false;
     }
     
-    setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _addWelcomeMessage() {
@@ -202,8 +222,29 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
           final storageService = StorageService();
           final userId = await storageService.getUserId();
           if (userId != null) {
+            // FIX: Wrap HabitScheduleScreen với Scaffold để tránh vỡ UI
             Navigator.of(context).push(
-              MaterialPageRoute(builder: (context) => HabitScheduleScreen(userId: userId)),
+              MaterialPageRoute(
+                builder: (context) => Scaffold(
+                  appBar: AppBar(
+                    title: const Text(
+                      'Thói quen Hôm nay',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                  ),
+                  body: HabitScheduleScreen(
+                    userId: userId,
+                    showTitle: false, // Ẩn title vì AppBar đã có
+                  ),
+                ),
+              ),
             );
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -265,34 +306,35 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
         setState(() {
           _isListening = true;
           _lastWords = '';
+          _listeningText = '';
         });
         
-        bool available = await _speech.listen(
+        // FIX: Bỏ check available vì speech đã start, chỉ cần handle error trong callback
+        await _speech.listen(
           onResult: (result) {
-            setState(() {
-              _lastWords = result.recognizedWords;
-            });
-            
-            if (result.finalResult) {
-              _handleSpeechResult(_lastWords);
+            if (mounted) {
+              setState(() {
+                _lastWords = result.recognizedWords;
+                _listeningText = result.recognizedWords;
+              });
+              
+              // Khi kết thúc, gửi message
+              if (result.finalResult) {
+                setState(() {
+                  _isListening = false;
+                  _listeningText = '';
+                });
+                _handleSpeechResult(_lastWords);
+              }
             }
           },
           listenFor: const Duration(seconds: 30),
           pauseFor: const Duration(seconds: 3),
           partialResults: true,
-          localeId: 'vi_VN', // Vietnamese locale
+          localeId: 'vi_VN',
           cancelOnError: true,
           listenMode: stt.ListenMode.confirmation,
         );
-        
-        if (!available) {
-          setState(() {
-            _isListening = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Không thể bắt đầu nhận diện giọng nói')),
-          );
-        }
       }
     } catch (e) {
       print('Error starting speech recognition: $e');
@@ -310,6 +352,7 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
       await _speech.stop();
       setState(() {
         _isListening = false;
+        _listeningText = '';
       });
     }
   }
@@ -447,47 +490,60 @@ class _ChatbotScreenState extends ConsumerState<ChatbotScreen> {
   }
 
   Widget _buildListeningIndicator() {
-    if (!_isListening) return const SizedBox.shrink();
+    if (!_isListening && _listeningText.isEmpty) return const SizedBox.shrink();
     
     return Container(
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.black,
+        color: Colors.grey[900],
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.red.withOpacity(0.3)),
+        border: Border.all(color: _isListening ? Colors.red.withOpacity(0.3) : Colors.grey.withOpacity(0.3)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.mic, color: Colors.red),
+          Icon(
+            _isListening ? Icons.mic : Icons.mic_off, 
+            color: _isListening ? Colors.red : Colors.grey,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Đang nghe...',
+                Text(
+                  _isListening ? 'Đang nghe...' : 'Đã hoàn thành',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: Colors.red,
+                    color: _isListening ? Colors.red : Colors.green,
                   ),
                 ),
-                if (_lastWords.isNotEmpty)
+                if (_listeningText.isNotEmpty)
                   Text(
-                    _lastWords,
+                    _listeningText,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                    ),
+                  )
+                else if (_isListening)
+                  Text(
+                    'Hãy nói gì đó...',
                     style: TextStyle(
-                      color: Colors.grey[600],
+                      color: Colors.grey[500],
                       fontSize: 12,
+                      fontStyle: FontStyle.italic,
                     ),
                   ),
               ],
             ),
           ),
-          IconButton(
-            onPressed: _stopListening,
-            icon: const Icon(Icons.stop, color: Colors.red),
-          ),
+          if (_isListening)
+            IconButton(
+              onPressed: _stopListening,
+              icon: const Icon(Icons.stop_circle, color: Colors.red),
+            ),
         ],
       ),
     );
