@@ -893,9 +893,10 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     // Generate tile data based on habit frequency
     final tileData = _generateFrequencyBasedTiles(habit, completionMap, now);
     
-    // Calculate completion percentage
+    // Calculate completion percentage - ONLY count days where habit should exist
+    final applicableDays = tileData.where((tile) => tile['hasHabit'] == true).length;
     final completedCount = tileData.where((tile) => tile['isCompleted'] == true).length;
-    final completionRate = tileData.isEmpty ? 0 : (completedCount / tileData.length * 100).round();
+    final completionRate = applicableDays == 0 ? 0 : (completedCount / applicableDays * 100).round();
     
     // Get habit color (use a default color scheme if not available)
     final habitColor = _getHabitColor(habit.category.name);

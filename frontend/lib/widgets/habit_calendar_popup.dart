@@ -424,8 +424,99 @@ class _HabitCalendarPopupState extends State<HabitCalendarPopup> {
     if (date.isBefore(DateUtils.dateOnly(widget.habit.startDate))) return false;
     if (widget.habit.endDate != null && date.isAfter(DateUtils.dateOnly(widget.habit.endDate!))) return false;
     
-    // All frequencies are supported for now
-    return true;
+    // Check frequency
+    switch (widget.habit.frequency.toLowerCase()) {
+      case 'daily':
+      case 'hàng ngày':
+        return true; // Daily habits apply to all days
+        
+      case 'weekly':
+      case 'hàng tuần':
+        final selectedDays = _getSelectedWeekdays(widget.habit);
+        return selectedDays.contains(date.weekday);
+        
+      case 'monthly':
+      case 'hàng tháng':
+        final selectedDaysOfMonth = _getSelectedDaysOfMonth(widget.habit);
+        return selectedDaysOfMonth.contains(date.day);
+        
+      default:
+        return true; // Default to daily behavior
+    }
+  }
+
+  // Get selected weekdays for weekly habits
+  List<int> _getSelectedWeekdays(HabitModel habit) {
+    // Try to get from habit schedule if available
+    if (habit.habitSchedule != null && habit.habitSchedule!.daysOfWeek.isNotEmpty) {
+      final daysString = habit.habitSchedule!.daysOfWeek;
+      final weekdays = <int>[];
+      
+      // Parse days like "Mon,Wed,Fri" or "1,3,5"
+      final daysList = daysString.split(',');
+      for (final day in daysList) {
+        final trimmedDay = day.trim();
+        // Try to parse as number first (1=Monday, 7=Sunday)
+        final dayNum = int.tryParse(trimmedDay);
+        if (dayNum != null && dayNum >= 1 && dayNum <= 7) {
+          weekdays.add(dayNum);
+        } else {
+          // Parse day names
+          switch (trimmedDay.toLowerCase()) {
+            case 'mon':
+            case 'monday':
+            case 'thứ hai':
+              weekdays.add(1);
+              break;
+            case 'tue':
+            case 'tuesday':
+            case 'thứ ba':
+              weekdays.add(2);
+              break;
+            case 'wed':
+            case 'wednesday':
+            case 'thứ tư':
+              weekdays.add(3);
+              break;
+            case 'thu':
+            case 'thursday':
+            case 'thứ năm':
+              weekdays.add(4);
+              break;
+            case 'fri':
+            case 'friday':
+            case 'thứ sáu':
+              weekdays.add(5);
+              break;
+            case 'sat':
+            case 'saturday':
+            case 'thứ bảy':
+              weekdays.add(6);
+              break;
+            case 'sun':
+            case 'sunday':
+            case 'chủ nhật':
+              weekdays.add(7);
+              break;
+          }
+        }
+      }
+      return weekdays;
+    }
+    
+    // Default to all weekdays if no specific days are set
+    return [1, 2, 3, 4, 5, 6, 7];
+  }
+
+  // Get selected days of month for monthly habits
+  List<int> _getSelectedDaysOfMonth(HabitModel habit) {
+    // Try to get from habit schedule if available
+    if (habit.habitSchedule != null && habit.habitSchedule!.dayOfMonth > 0) {
+      return [habit.habitSchedule!.dayOfMonth];
+    }
+    
+    // Default to first day of month if no specific day is set
+    return [1];
   }
 
   IconData _getHabitIcon(String category) {
