@@ -8,6 +8,7 @@ import '../api/habit_api_service.dart';
 import '../models/habit_model.dart';
 import '../themes/app_theme.dart';
 import '../utils/icon_utils.dart';
+import '../widgets/touch_ripple_wrapper.dart';
 
 class HabitScheduleScreen extends StatefulWidget {
   final String userId;
@@ -23,14 +24,12 @@ class _HabitScheduleScreenState extends State<HabitScheduleScreen> {
   late Future<List<HabitModel>> _habitsFuture;
   DateTime _selectedDate = DateTime.now();
   int _weekOffset = 0; // 0 = tuần hiện tại, -1 = tuần trước, +1 = tuần sau, ...
-  String _selectedCategory = 'Tất cả';
-  final List<String> _categories = ['Tất cả', 'Sức Khỏe', 'Học Tập', 'Công Việc', 'Khác'];
   Set<int> _completedHabits = {}; // Track completed habits for today
 
   @override
   void initState() {
     super.initState();
-    _loadHabits();
+    _loadHabitsForNewDate();
   }
 
   DateTime getStartOfWeek(DateTime date) {
@@ -40,21 +39,43 @@ class _HabitScheduleScreenState extends State<HabitScheduleScreen> {
   void _loadHabits() {
     setState(() {
       _habitsFuture = _api.getHabitsDueToday(widget.userId, selectedDate: _selectedDate);
+      // Don't clear completed habits - keep them for UI state
+      // Only clear if we're changing to a different date
     });
   }
 
-  /// Complete a habit for today
+  void _loadHabitsForNewDate() {
+    setState(() {
+      _habitsFuture = _api.getHabitsDueToday(widget.userId, selectedDate: _selectedDate);
+      // Clear completed habits when changing date to prevent showing wrong checkmarks
+      _completedHabits.clear();
+    });
+  }
+
+  /// Complete a habit for selected date (only if selected date is today)
   Future<void> _completeHabit(HabitModel habit) async {
+    // Only allow completion if selected date is today
+    if (!_isSelectedDateToday()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Chỉ có thể hoàn thành thói quen trong ngày hôm nay'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     try {
       // Show loading indicator
       setState(() {
         _completedHabits.add(habit.id);
       });
 
-      // Call API to complete habit
+      // Call API to complete habit with selected date
       await _habitApiService.completeHabit(
         habit.id,
-        completedAt: DateTime.now(),
+        completedAt: _selectedDate,
       );
 
       // Show success message
@@ -89,19 +110,23 @@ class _HabitScheduleScreenState extends State<HabitScheduleScreen> {
     }
   }
 
-  /// Check if habit is completed today
+  /// Check if habit is completed on selected date
   bool _isHabitCompletedToday(HabitModel habit) {
-    final today = DateTime.now();
-    final DateTime startOfWeek = today
-      .add(Duration(days: _weekOffset * 7))
-      .subtract(Duration(days: today.weekday - 1));
-
-    final todayOnly = DateTime(today.year, today.month, today.day);
+    // Use selected date instead of today's date
+    final selectedDateOnly = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
     
     return habit.completionDates.any((date) {
       final dateOnly = DateTime(date.year, date.month, date.day);
-      return dateOnly.isAtSameMomentAs(todayOnly);
-    }) || _completedHabits.contains(habit.id);
+      return dateOnly.isAtSameMomentAs(selectedDateOnly);
+    }) || (_completedHabits.contains(habit.id) && _isSelectedDateToday());
+  }
+
+  /// Check if selected date is today
+  bool _isSelectedDateToday() {
+    final today = DateTime.now();
+    final todayOnly = DateTime(today.year, today.month, today.day);
+    final selectedDateOnly = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    return selectedDateOnly.isAtSameMomentAs(todayOnly);
   }
 
   @override
@@ -109,28 +134,42 @@ class _HabitScheduleScreenState extends State<HabitScheduleScreen> {
     final DateTime startOfWeek =
             _selectedDate.subtract(Duration(days: _selectedDate.weekday - 1));
 
-    return Container(
-      color: Colors.black,
-      child: Column(
-        children: [
-          // Header với nút "Hôm nay" ============================================
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    return SafeArea(
+      child: Container(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        child: Column(
+          children: [
+            // Additional top spacing to avoid overlap with phone screen elements
+            const SizedBox(height: 8),
+            // Title Section
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
+              child: Center(
+                child: Text(
+                  'Lịch trình Thói quen',
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+            // Header với nút "Hôm nay" ============================================
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.menu, color: Colors.white),
-                  onPressed: () {},
-                ),
-                GestureDetector(
+                TouchRippleWrapper(
                   onTap: () {
                     setState(() {
                       _selectedDate = DateTime.now();
                       _weekOffset = 0; // Reset về tuần hiện tại
                     });
-                    _loadHabits();
+                    _loadHabitsForNewDate();
                   },
+                  borderRadius: BorderRadius.circular(20),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                     decoration: BoxDecoration(
@@ -150,12 +189,41 @@ class _HabitScheduleScreenState extends State<HabitScheduleScreen> {
                 Row(
                   children: [
                     IconButton(
-                      icon: const Icon(LucideIcons.list, color: Colors.white),
-                      onPressed: () {},
-                    ),
-                    IconButton(
                       icon: const Icon(LucideIcons.calendar, color: Colors.white),
-                      onPressed: () {},
+                      onPressed: () async {
+                        final DateTime? pickedDate = await showDatePicker(
+                          context: context,
+                          initialDate: _selectedDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2030),
+                          builder: (context, child) {
+                            return Theme(
+                              data: Theme.of(context).copyWith(
+                                colorScheme: const ColorScheme.dark(
+                                  primary: Colors.pink,
+                                  onPrimary: Colors.white,
+                                  surface: Color(0xFF2A2A2A),
+                                  onSurface: Colors.white,
+                                ),
+                                dialogBackgroundColor: const Color(0xFF1A1A1A),
+                              ),
+                              child: child!,
+                            );
+                          },
+                        );
+                        
+                        if (pickedDate != null && pickedDate != _selectedDate) {
+                          setState(() {
+                            _selectedDate = pickedDate;
+                            // Calculate week offset based on selected date
+                            final today = DateTime.now();
+                            final startOfCurrentWeek = today.subtract(Duration(days: today.weekday - 1));
+                            final startOfSelectedWeek = pickedDate.subtract(Duration(days: pickedDate.weekday - 1));
+                            _weekOffset = startOfSelectedWeek.difference(startOfCurrentWeek).inDays ~/ 7;
+                          });
+                          _loadHabitsForNewDate();
+                        }
+                      },
                     ),
                   ],
                 ),
@@ -168,143 +236,97 @@ class _HabitScheduleScreenState extends State<HabitScheduleScreen> {
           Container(
             color: Colors.transparent,
             height: 80,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: [
-                // Nút tuần trước ⟨
-                IconButton(
-                  icon: Icon(Icons.chevron_right, color: Colors.white.withOpacity(0.5)),
-                  onPressed: () {
-                    setState(() {
-                      final today = DateTime.now();
-                      _weekOffset--;
-                      final startOfThisWeek = today.subtract(Duration(days: today.weekday - 1));
-                      final newStart = startOfThisWeek.add(Duration(days: _weekOffset * 7));
-                      _selectedDate = newStart;
-                    });
-                    _loadHabits();
-                  },
-                ),
-
-                // Danh sách 7 ngày trong tuần
-                Expanded(
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: 7,
-                    itemBuilder: (context, index) {
-                      final date = startOfWeek.add(Duration(days: index));
-                      final isSelected = date.day == _selectedDate.day &&
-                          date.month == _selectedDate.month &&
-                          date.year == _selectedDate.year;
-                      final isToday = date.day == DateTime.now().day &&
-                          date.month == DateTime.now().month &&
-                          date.year == DateTime.now().year;
-
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedDate = date;
-                          });
-                          _loadHabits();
-                        },
-                        child: Container(
-                          width: 50,
-                          margin: const EdgeInsets.only(right: 8),
-                          decoration: BoxDecoration(
-                            color: isSelected ? Colors.pink : Colors.grey[800],
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                DateFormat('E', 'vi').format(date),
-                                style: TextStyle(
-                                  color: isSelected ? Colors.white : Colors.white70,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Container(
-                                width: 24,
-                                height: 24,
-                                decoration: BoxDecoration(
-                                  color: isToday ? Colors.white : Colors.transparent,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    date.day.toString(),
-                                    style: TextStyle(
-                                      color: isToday
-                                          ? Colors.pink
-                                          : (isSelected ? Colors.white : Colors.white70),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
-                // Nút tuần sau ⟩
-                IconButton(
-                  icon: Icon(Icons.chevron_right, color: Colors.white.withOpacity(0.7)),
-                  onPressed: () {
-                    setState(() {
-                      final today = DateTime.now();
-                      _weekOffset++;
-                      final startOfThisWeek = today.subtract(Duration(days: today.weekday - 1));
-                      final newStart = startOfThisWeek.add(Duration(days: _weekOffset * 7));
-                      _selectedDate = newStart;
-                    });
-                    _loadHabits();
-                  },
-                ),
-              ],
-            ),
-          ),
-          // Category filters =============================================
-          Container(
-            height: 40,
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _categories.length,
-              itemBuilder: (context, index) {
-                final category = _categories[index];
-                final isSelected = category == _selectedCategory;
-                
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedCategory = category;
-                    });
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected ? Colors.pink : Colors.grey[800],
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      category,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.white70,
-                        fontWeight: FontWeight.w500,
+            child: TouchRippleWrapper(
+              onHorizontalDragEnd: (DragEndDetails details) {
+                // Swipe left = next week, Swipe right = previous week
+                if (details.primaryVelocity! > 0) {
+                  // Swipe right - previous week
+                  setState(() {
+                    final today = DateTime.now();
+                    _weekOffset--;
+                    final startOfThisWeek = today.subtract(Duration(days: today.weekday - 1));
+                    final newStart = startOfThisWeek.add(Duration(days: _weekOffset * 7));
+                    _selectedDate = newStart;
+                  });
+                  _loadHabitsForNewDate();
+                } else if (details.primaryVelocity! < 0) {
+                  // Swipe left - next week
+                  setState(() {
+                    final today = DateTime.now();
+                    _weekOffset++;
+                    final startOfThisWeek = today.subtract(Duration(days: today.weekday - 1));
+                    final newStart = startOfThisWeek.add(Duration(days: _weekOffset * 7));
+                    _selectedDate = newStart;
+                  });
+                  _loadHabitsForNewDate();
+                }
+              },
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                physics: const NeverScrollableScrollPhysics(), // Disable ListView scrolling
+                itemCount: 7,
+                itemBuilder: (context, index) {
+                  final date = startOfWeek.add(Duration(days: index));
+                  final isSelected = date.day == _selectedDate.day &&
+                      date.month == _selectedDate.month &&
+                      date.year == _selectedDate.year;
+                  final isToday = date.day == DateTime.now().day &&
+                      date.month == DateTime.now().month &&
+                      date.year == DateTime.now().year;
+
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedDate = date;
+                      });
+                      _loadHabitsForNewDate();
+                    },
+                    child: Container(
+                      width: 50,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.pink : Colors.grey[800],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            DateFormat('E', 'vi').format(date),
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: isToday ? Colors.white : Colors.transparent,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                date.day.toString(),
+                                style: TextStyle(
+                                  color: isToday
+                                      ? Colors.pink
+                                      : (isSelected ? Colors.white : Colors.white70),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
 
@@ -361,7 +383,7 @@ class _HabitScheduleScreenState extends State<HabitScheduleScreen> {
 
           // Habits list
           Expanded(
-        child: FutureBuilder<List<HabitModel>>(
+          child: FutureBuilder<List<HabitModel>>(
           future: _habitsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -419,7 +441,7 @@ class _HabitScheduleScreenState extends State<HabitScheduleScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                            habit.name,
+                                  habit.name,
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 16,
@@ -484,12 +506,13 @@ class _HabitScheduleScreenState extends State<HabitScheduleScreen> {
                         ),
                       );
                     },
-            );
+                );
           },
         ),
           ),
         ],
-      ),
+        ),
+      )
     );
   }
 }

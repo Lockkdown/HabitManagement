@@ -85,7 +85,8 @@ class AppTheme {
         background: const Color(0xFF121212), // Màu nền chính
       ),
       
-      scaffoldBackgroundColor: const Color(0xFF121212),
+      scaffoldBackgroundColor: Colors.black,
+
       
       appBarTheme: const AppBarTheme(
         centerTitle: true,
