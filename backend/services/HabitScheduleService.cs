@@ -12,7 +12,7 @@ namespace backend.Services
     public class HabitScheduleService
     {
         private readonly ApplicationDbContext _context;
-
+        
         public HabitScheduleService(ApplicationDbContext context)
         {
             _context = context;
@@ -47,7 +47,8 @@ namespace backend.Services
                 FrequencyType = dto.FrequencyType, // Giả sử DTO gửi đúng chữ hoa/thường
                 FrequencyValue = dto.FrequencyValue,
                 DaysOfWeek = dto.DaysOfWeek,
-                DayOfMonth = dto.DayOfMonth,
+                // DayOfMonth = dto.DayOfMonth, // <<< LỖI Ở ĐÂY, DTO ĐÃ ĐỔI SANG DaysOfMonth
+                DaysOfMonth = dto.DaysOfMonth, // <<< SỬA THÀNH DaysOfMonth (string?)
                 IsActive = dto.IsActive
             };
 
@@ -67,7 +68,8 @@ namespace backend.Services
             schedule.FrequencyType = dto.FrequencyType; // Giả sử DTO gửi đúng chữ hoa/thường
             schedule.FrequencyValue = dto.FrequencyValue;
             schedule.DaysOfWeek = dto.DaysOfWeek;
-            schedule.DayOfMonth = dto.DayOfMonth;
+            // schedule.DayOfMonth = dto.DayOfMonth; // <<< LỖI Ở ĐÂY
+            schedule.DaysOfMonth = dto.DaysOfMonth; // <<< SỬA THÀNH DaysOfMonth (string?)
             schedule.IsActive = dto.IsActive;
 
             _context.Entry(schedule).State = EntityState.Modified;
@@ -155,7 +157,7 @@ namespace backend.Services
                     Console.WriteLine($"      -> IsDateInSchedule Daily: Date={date:yyyy-MM-dd}, Start={habitStartDate:yyyy-MM-dd}, Diff={diff}, FreqValue={s.FrequencyValue}, Result={dailyResult}");
                     return dailyResult;
 
-                case "Weekly": // <<< SỬA LOGIC CASE NÀY >>>
+                case "Weekly":
                     if (string.IsNullOrEmpty(s.DaysOfWeek)) {
                         Console.WriteLine($"      -> IsDateInSchedule Weekly: DaysOfWeek is null or empty. Result: false");
                         return false;
@@ -165,16 +167,14 @@ namespace backend.Services
                     {
                         // Lấy DayOfWeek enum của ngày cần kiểm tra (Sunday = 0, Monday = 1, ..., Saturday = 6)
                         DayOfWeek currentDayOfWeek = date.DayOfWeek;
-                        // Log giá trị DayOfWeek gốc
                         Console.WriteLine($"      -> IsDateInSchedule Weekly: Checking date {date:yyyy-MM-dd}, DayOfWeek Enum = {currentDayOfWeek} ({(int)currentDayOfWeek})");
-
 
                         // Tách chuỗi từ database ("Mon,Wed,Fri")
                         var scheduledDayStrings = s.DaysOfWeek.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                                                     .Select(x => x.Trim().ToLowerInvariant()); // Chuyển thành chữ thường để so sánh
+                                                     .Select(x => x.Trim().ToLowerInvariant()); // Chuyển thành chữ thường
 
                         // Tạo một Dictionary để map chuỗi sang DayOfWeek enum
-                        var dayMap = new Dictionary<string, DayOfWeek>(StringComparer.OrdinalIgnoreCase) // Thêm IgnoreCase cho Key
+                        var dayMap = new Dictionary<string, DayOfWeek>(StringComparer.OrdinalIgnoreCase)
                         {
                             { "sun", DayOfWeek.Sunday },
                             { "mon", DayOfWeek.Monday },
@@ -188,16 +188,15 @@ namespace backend.Services
                         bool shouldPerform = false;
                         foreach (var dayStr in scheduledDayStrings)
                         {
-                            // Kiểm tra xem chuỗi ngày từ DB có trong map không và có khớp với ngày hiện tại không
                              Console.WriteLine($"        -> Comparing schedule day string '{dayStr}'...");
-                            if (dayMap.TryGetValue(dayStr, out DayOfWeek scheduledDayEnum)) // Dùng TryGetValue an toàn hơn
+                            if (dayMap.TryGetValue(dayStr, out DayOfWeek scheduledDayEnum))
                             {
                                  Console.WriteLine($"          -> Mapped '{dayStr}' to Enum: {scheduledDayEnum}");
                                 if (scheduledDayEnum == currentDayOfWeek)
                                 {
                                     shouldPerform = true;
                                      Console.WriteLine($"          -> MATCH FOUND!");
-                                    break; // Tìm thấy khớp, không cần kiểm tra nữa
+                                    break;
                                 }
                             } else {
                                  Console.WriteLine($"          -> Could not map '{dayStr}' to a DayOfWeek Enum.");
@@ -210,22 +209,34 @@ namespace backend.Services
                     catch (Exception ex)
                     {
                         Console.WriteLine($"      -> Error processing DaysOfWeek ('{s.DaysOfWeek}') in IsDateInSchedule: {ex.Message}. Result: false");
-                        return false; // Lỗi thì coi như không khớp
+                        return false;
                     }
-                    // <<< KẾT THÚC SỬA LOGIC CASE NÀY >>>
 
                 case "Monthly":
+                    // <<< SỬA LOGIC CASE NÀY >>>
+                    if (string.IsNullOrEmpty(s.DaysOfMonth)) { // Dùng DaysOfMonth (string)
+                         Console.WriteLine($"      -> IsDateInSchedule Monthly: DaysOfMonth is null or empty. Result: false");
+                         return false;
+                    }
                     try
                     {
-                        bool monthlyResult = date.Day == s.DayOfMonth;
-                        Console.WriteLine($"      -> IsDateInSchedule Monthly: Today is day {date.Day}, schedule day is {s.DayOfMonth}, Result={monthlyResult}");
+                        // Tách chuỗi "1,15,30" thành danh sách số nguyên [1, 15, 30]
+                        var scheduledDays = s.DaysOfMonth.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                                       .Select(x => int.Parse(x.Trim()));
+                        
+                        // Kiểm tra xem ngày hiện tại (date.Day) có nằm trong danh sách không
+                        bool monthlyResult = scheduledDays.Contains(date.Day); 
+                        
+                        Console.WriteLine($"      -> IsDateInSchedule Monthly: Today is day {date.Day}, schedule days are '{s.DaysOfMonth}', Result={monthlyResult}");
                         return monthlyResult;
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"      -> Error checking DayOfMonth ({s.DayOfMonth}) in IsDateInSchedule: {ex.Message}. Result: false");
+                        // Lỗi nếu chuỗi không phải là số (ví dụ: "Mon")
+                        Console.WriteLine($"      -> Error parsing DaysOfMonth ('{s.DaysOfMonth}') in IsDateInSchedule: {ex.Message}. Result: false");
                         return false;
                     }
+                    // <<< KẾT THÚC SỬA CASE MONTHLY >>>
 
                 default:
                     Console.WriteLine($"      -> IsDateInSchedule: Unknown FrequencyType. Original: '{s.FrequencyType}', Normalized: '{frequencyTypeUpper}' for schedule Id {s.Id}. Result: false");
@@ -285,7 +296,6 @@ namespace backend.Services
                     else // Nếu không có HabitSchedule, thử kiểm tra bằng Frequency gốc (chỉ hỗ trợ daily)
                     {
                         Console.WriteLine($"    -> No HabitSchedule found. Checking base Frequency ('{habit.Frequency}').");
-                        // Chỉ thêm nếu Frequency gốc là daily VÀ ngày hiện tại >= ngày bắt đầu
                         if (habit.Frequency.Equals("daily", StringComparison.OrdinalIgnoreCase) && today >= habit.StartDate.Date) {
                             shouldPerform = true;
                             Console.WriteLine($"    -> DUE today (Daily habit without schedule).");
@@ -294,7 +304,6 @@ namespace backend.Services
                         }
                     }
 
-                    // Nếu habit cần thực hiện hôm nay, thêm vào danh sách kết quả
                     if(shouldPerform)
                     {
                         Console.WriteLine($"    -> Adding habit '{habit.Name}' to due today list.");
@@ -316,7 +325,6 @@ namespace backend.Services
         // === HÀM MAP HELPER ===
         private HabitResponseDto MapToHabitResponseDto(Habit habit)
         {
-            // Tính toán completions (đã include CompletionDates)
             var nowUtc = DateTime.UtcNow;
             var startOfWeekUtc = nowUtc.Date.AddDays(-(int)nowUtc.DayOfWeek + (int)DayOfWeek.Monday);
             if (nowUtc.DayOfWeek == DayOfWeek.Sunday) startOfWeekUtc = startOfWeekUtc.AddDays(-7);
@@ -330,7 +338,7 @@ namespace backend.Services
                 Id = habit.Id,
                 Name = habit.Name,
                 Description = habit.Description,
-                 Category = habit.Category == null ? null : new CategoryResponseDto {
+                Category = habit.Category == null ? null : new CategoryResponseDto {
                     Id = habit.Category.Id,
                     Name = habit.Category.Name,
                     Color = habit.Category.Color,
@@ -361,7 +369,7 @@ namespace backend.Services
                 FrequencyType = hs.FrequencyType,
                 FrequencyValue = hs.FrequencyValue,
                 DaysOfWeek = hs.DaysOfWeek,
-                DayOfMonth = hs.DayOfMonth,
+                DaysOfMonth = hs.DaysOfMonth, // <<< SỬA: Đảm bảo là DaysOfMonth (string)
                 IsActive = hs.IsActive
             };
         }
