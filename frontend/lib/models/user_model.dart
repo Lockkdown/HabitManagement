@@ -35,7 +35,7 @@ class UserModel {
       username: json['username'] ?? '',
       email: json['email'] ?? '',
       fullName: json['fullName'] ?? '',
-      themePreference: json['themePreference'] ?? 'light',
+      themePreference: json['themePreference'] ?? 'dark',
       languageCode: json['languageCode'] ?? 'vi',
     );
   }

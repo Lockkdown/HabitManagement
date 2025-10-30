@@ -79,7 +79,7 @@ public class AuthService
             Console.WriteLine($"Warning: Không thể gán role User cho {user.Email}");
         }
 
-        // Gửi email chào mừng (không chờ kết quả, không làm crash nếu lỗi)
+        // Gửi email chào mừng
         _ = Task.Run(async () =>
         {
             try
