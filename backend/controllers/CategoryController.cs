@@ -134,7 +134,7 @@ public class CategoryController : ControllerBase
     }
 
     /// <summary>
-    /// Xóa danh mục.
+    /// Xóa danh mục. Các thói quen thuộc danh mục này sẽ được chuyển sang category "Không có danh mục".
     /// </summary>
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteCategory(int id)
@@ -146,12 +146,46 @@ public class CategoryController : ControllerBase
             .FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
 
         if (category == null) return NotFound();
-
-        // Kiểm tra xem danh mục có thói quen nào không
-        var hasHabits = await _context.Habits.AnyAsync(h => h.CategoryId == id);
-        if (hasHabits)
+        
+        // FIX: Không cho phép xóa danh mục "Không có danh mục"
+        if (category.Name == "Không có danh mục")
         {
-            return BadRequest("Không thể xóa danh mục có chứa thói quen");
+            return BadRequest(new { message = "Không thể xóa danh mục 'Không có danh mục'" });
+        }
+
+        // FIX: Tìm hoặc tạo category "Không có danh mục" cho user
+        var habitsInCategory = await _context.Habits
+            .Where(h => h.CategoryId == id)
+            .ToListAsync();
+        
+        if (habitsInCategory.Any())
+        {
+            // Tìm category "Không có danh mục" của user
+            var uncategorized = await _context.Categories
+                .FirstOrDefaultAsync(c => c.UserId == userId && c.Name == "Không có danh mục");
+            
+            // Nếu chưa có, tạo mới
+            if (uncategorized == null)
+            {
+                uncategorized = new Category
+                {
+                    Name = "Không có danh mục",
+                    Color = "#808080",
+                    Icon = "help-circle",
+                    UserId = userId,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _context.Categories.Add(uncategorized);
+                await _context.SaveChangesAsync(); // Save để có ID
+            }
+            
+            // Chuyển tất cả habits sang category "Không có danh mục"
+            foreach (var habit in habitsInCategory)
+            {
+                habit.CategoryId = uncategorized.Id;
+                habit.UpdatedAt = DateTime.UtcNow;
+            }
         }
 
         _context.Categories.Remove(category);

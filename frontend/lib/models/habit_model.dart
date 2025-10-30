@@ -204,8 +204,9 @@ class CreateHabitModel {
       'name': name,
       'description': description,
       'categoryId': categoryId,
-      'startDate': startDate.toIso8601String(),
-      'endDate': endDate?.toIso8601String(),
+      // FIX: Gửi chỉ phần date (yyyy-MM-dd) để tránh lỗi timezone
+      'startDate': '${startDate.year.toString().padLeft(4, '0')}-${startDate.month.toString().padLeft(2, '0')}-${startDate.day.toString().padLeft(2, '0')}',
+      'endDate': endDate == null ? null : '${endDate!.year.toString().padLeft(4, '0')}-${endDate!.month.toString().padLeft(2, '0')}-${endDate!.day.toString().padLeft(2, '0')}',
       'frequency': frequency,
       'hasReminder': hasReminder,
       'reminderType': reminderType,
@@ -286,8 +287,9 @@ class UpdateHabitModel {
      if (name != null) data['name'] = name;
      data['description'] = description; // Cho phép gửi null
      if (categoryId != null) data['categoryId'] = categoryId;
-     if (startDate != null) data['startDate'] = startDate!.toIso8601String();
-     data['endDate'] = endDate?.toIso8601String(); // Cho phép gửi null
+     // FIX: Gửi chỉ phần date (yyyy-MM-dd) để tránh lỗi timezone
+     if (startDate != null) data['startDate'] = '${startDate!.year.toString().padLeft(4, '0')}-${startDate!.month.toString().padLeft(2, '0')}-${startDate!.day.toString().padLeft(2, '0')}';
+     data['endDate'] = endDate == null ? null : '${endDate!.year.toString().padLeft(4, '0')}-${endDate!.month.toString().padLeft(2, '0')}-${endDate!.day.toString().padLeft(2, '0')}'; // Cho phép gửi null
      if (frequency != null) data['frequency'] = frequency;
      if (hasReminder != null) data['hasReminder'] = hasReminder;
      data['reminderType'] = reminderType; // Cho phép gửi null

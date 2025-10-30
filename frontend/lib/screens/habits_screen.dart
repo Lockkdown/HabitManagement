@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
-import 'package:easy_date_timeline/easy_date_timeline.dart';
-import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 // Import models, services, utils và các màn hình liên quan
@@ -36,8 +34,7 @@ class HabitsScreenState extends ConsumerState<HabitsScreen> {
   // --- State và Services chuyển từ HomeScreen sang ---
   final HabitApiService _habitApiService = HabitApiService();
   List<HabitModel> _habits = [];
-  bool _isLoading = true;
-  bool _isCompletingHabit = false; 
+  bool _isLoading = true; 
 
   @override
   void initState() {
@@ -74,88 +71,6 @@ class HabitsScreenState extends ConsumerState<HabitsScreen> {
     }
   }
 
-  // --- Các hàm còn lại giữ nguyên logic (bao gồm cả logic sửa lỗi múi giờ) ---
-
-  Future<void> _completeHabitForDate(HabitModel habit, DateTime selectedDateLocal) async {
-    if (_isCompletingHabit) return;
-
-    final DateTime dateOnlySelectedLocal = DateUtils.dateOnly(selectedDateLocal);
-    final DateTime todayLocal = DateUtils.dateOnly(DateTime.now());
-
-    // Kiểm tra không thể hoàn thành cho ngày tương lai
-    if (dateOnlySelectedLocal.isAfter(todayLocal)) {
-      if (!mounted) return; 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không thể đánh dấu cho ngày tương lai')),
-      );
-      return;
-    }
-
-    // Kiểm tra không thể hoàn thành cho ngày quá khứ (chỉ cho phép hôm nay)
-    if (dateOnlySelectedLocal.isBefore(todayLocal)) {
-      if (!mounted) return; 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không thể đánh dấu cho ngày trong quá khứ')),
-      );
-      return;
-    }
-
-    // SỬA LỖI: Tạo UTC datetime với cùng ngày thay vì chuyển đổi timezone
-    final DateTime completionTimeUtc = DateTime.utc(
-      dateOnlySelectedLocal.year,
-      dateOnlySelectedLocal.month, 
-      dateOnlySelectedLocal.day,
-      12, // Đặt giờ là 12:00 UTC để tránh lỗi timezone
-      0,
-      0
-    );
-    debugPrint("[UI ACTION] Request complete/uncomplete for habit ${habit.id} on date (Local): ${dateOnlySelectedLocal.toIso8601String()} -> (UTC): ${completionTimeUtc.toIso8601String()}");
-
-    bool isAlreadyDone = habit.completionDates.any((doneDateUtc) {
-        final doneDateLocal = doneDateUtc.toLocal();
-        return DateUtils.isSameDay(doneDateLocal, dateOnlySelectedLocal);
-    });
-
-    setState(() => _isCompletingHabit = true);
-
-    try {
-      if (isAlreadyDone) {
-        debugPrint("Calling API to UNCOMPLETE habit ${habit.id} for date (UTC): ${completionTimeUtc.toIso8601String()}");
-        // await _habitApiService.uncompleteHabit(habit.id, completedAt: completionTimeUtc); 
-        if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
-             const SnackBar(content: Text('Chức năng bỏ tick chưa cài đặt')),
-           );
-        }
-      } else {
-        debugPrint("Calling API to COMPLETE habit ${habit.id} for date (UTC): ${completionTimeUtc.toIso8601String()}");
-        await _habitApiService.completeHabit(habit.id, completedAt: completionTimeUtc);
-        if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(content: Text('Đã hoàn thành ngày ${_formatDate(dateOnlySelectedLocal)}')),
-           );
-        }
-      }
-
-      if (mounted) {
-        await loadHabits(); // Gọi hàm public
-      }
-
-    } catch (e) {
-      if (mounted) {
-        debugPrint('Lỗi khi gọi API complete/uncomplete: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi khi ${isAlreadyDone ? "bỏ" : "đánh dấu"} hoàn thành: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isCompletingHabit = false);
-      }
-    }
-  }
-
-  String _formatDate(DateTime date) => DateFormat('dd/MM', 'vi_VN').format(date.toLocal());
 
 
   void _showHabitOptions(BuildContext context, HabitModel habit) {
@@ -284,19 +199,6 @@ class HabitsScreenState extends ConsumerState<HabitsScreen> {
   }
 
   Widget _buildHabitCard(HabitModel habit) {
-    final List<DateTime> doneDatesUtc = habit.completionDates;
-    final DateTime todayLocal = DateUtils.dateOnly(DateTime.now());
-
-    final bool isDoneToday = doneDatesUtc.any((doneDateUtc) {
-        final doneDateLocal = doneDateUtc.toLocal();
-        return DateUtils.isSameDay(doneDateLocal, todayLocal);
-    });
-
-    // Tính toán tuần bắt đầu từ Thứ 2 (Monday = 1)
-    DateTime startOfWeek = todayLocal.subtract(Duration(days: todayLocal.weekday - 1));
-    DateTime endOfWeek = startOfWeek.add(const Duration(days: 6));
-
-
     return Card(
       key: ValueKey(habit.id),
       color: Colors.grey[850],
@@ -307,35 +209,14 @@ class HabitsScreenState extends ConsumerState<HabitsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
-              // Nút check
-              InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: _isCompletingHabit ? null : () => _completeHabitForDate(habit, todayLocal),
-                child: Ink(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isDoneToday ? Colors.green : Colors.grey[600]!, width: 2,
-                    ),
-                    color: isDoneToday ? Colors.green.withOpacity(0.2) : Colors.transparent,
-                  ),
-                  child: Center(
-                     child: _isCompletingHabit && !isDoneToday
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.pink))
-                        : (isDoneToday ? const Icon(Icons.check, color: Colors.green, size: 24) : null),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
               // Icon
               Container(
                  width: 50, height: 50,
                  decoration: BoxDecoration(
-                   color: Color(int.tryParse(habit.category.color?.replaceFirst('#', '0xFF') ?? '') ?? 0xFF808080),
+                   color: Color(int.parse(habit.category.color.replaceFirst('#', '0xFF'))),
                    borderRadius: BorderRadius.circular(12),
                  ),
-                 child: Icon(IconUtils.getIconData(habit.category.icon ?? ''), color: Colors.white, size: 24),
+                 child: Icon(IconUtils.getIconData(habit.category.icon), color: Colors.white, size: 24),
               ),
               const SizedBox(width: 16),
               // Tên và category
@@ -343,7 +224,7 @@ class HabitsScreenState extends ConsumerState<HabitsScreen> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(habit.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
                   const SizedBox(height: 4),
-                  Text(habit.category.name ?? 'Không có danh mục', style: TextStyle(fontSize: 14, color: Colors.grey[400])),
+                  Text(habit.category.name, style: TextStyle(fontSize: 14, color: Colors.grey[400])),
                 ]),
               ),
               // Nút options
@@ -352,97 +233,9 @@ class HabitsScreenState extends ConsumerState<HabitsScreen> {
                 icon: Icon(Icons.more_vert, color: Colors.grey[400]),
               ),
             ]),
-            const SizedBox(height: 16),
-            // Lịch tuần
-            EasyDateTimeLine(
-              initialDate: todayLocal,
-              locale: 'vi_VN',
-              headerProps: const EasyHeaderProps(showHeader: false),
-              dayProps: const EasyDayProps(
-                inactiveDayStyle: DayStyle( decoration: BoxDecoration( color: Colors.transparent,) ),
-                dayStructure: DayStructure.dayStrDayNum,
-                activeDayStyle: DayStyle( decoration: BoxDecoration(color: Colors.transparent) ),
-                width: 42, height: 55,
-              ),
-              itemBuilder: (context, dateLocal, isSelected, isTodayNullable) {
-                  final DateTime dateDtLocal = DateUtils.dateOnly(dateLocal);
-                  final DateTime todayLocal = DateUtils.dateOnly(DateTime.now());
-                  final bool isToday = isTodayNullable == true;
-                  final bool isPastDate = dateDtLocal.isBefore(todayLocal);
-
-                  // Chỉ hiển thị các ngày trong tuần hiện tại (T2-CN)
-                  if (dateDtLocal.isBefore(startOfWeek) || dateDtLocal.isAfter(endOfWeek)) {
-                    return const SizedBox.shrink();
-                  }
-                  
-                  bool isDone = doneDatesUtc.any((doneDateUtc) {
-                      final doneDateLocal = doneDateUtc.toLocal();
-                      return DateUtils.isSameDay(doneDateLocal, dateDtLocal);
-                  });
-
-                  Color bgColor = Colors.transparent;
-                  Color dayNumColor = Colors.white;
-                  Color dayStrColor = Colors.white70;
-                  FontWeight dayNumWeight = FontWeight.normal;
-                  BoxBorder? border;
-
-                  // Styling cho ngày quá khứ
-                  if (isPastDate) {
-                    dayNumColor = Colors.grey[600]!;
-                    dayStrColor = Colors.grey[600]!;
-                    if (isDone) {
-                      bgColor = Colors.green.withOpacity(0.2);
-                      dayNumColor = Colors.green[300]!;
-                      dayStrColor = Colors.green[300]!;
-                    }
-                  } else if (isDone) {
-                    bgColor = Colors.green.withOpacity(0.3);
-                    dayNumColor = Colors.green[200]!;
-                    dayStrColor = Colors.green[200]!;
-                    dayNumWeight = FontWeight.bold;
-                  }
-                  
-                  if (isToday) {
-                     if (!isDone) {
-                        bgColor = Colors.redAccent.withOpacity(0.3);
-                        dayNumColor = Colors.red[100]!;
-                        dayStrColor = Colors.red[100]!;
-                     }
-                     border = Border.all(color: Colors.white70, width: 1.5);
-                     dayNumWeight = FontWeight.bold;
-                  }
-
-                  return InkWell(
-                     // Vô hiệu hóa tap cho ngày quá khứ và khi đang xử lý
-                     onTap: (_isCompletingHabit || isPastDate) ? null : () => _completeHabitForDate(habit, dateDtLocal),
-                     borderRadius: BorderRadius.circular(10),
-                     child: Container(
-                       width: 42, height: 55,
-                       decoration: BoxDecoration(
-                         color: bgColor, borderRadius: BorderRadius.circular(10), border: border,
-                       ),
-                       child: Column(
-                         mainAxisAlignment: MainAxisAlignment.center,
-                         children: [
-                           Text(
-                             DateFormat('E', 'vi_VN').format(dateDtLocal).toUpperCase(),
-                             style: TextStyle( color: dayStrColor, fontSize: 10, fontWeight: FontWeight.w500,),
-                           ),
-                           const SizedBox(height: 5),
-                           Text(
-                             dateDtLocal.day.toString(),
-                             style: TextStyle( color: dayNumColor, fontWeight: dayNumWeight, fontSize: 14,),
-                           ),
-                         ],
-                       ),
-                     ),
-                  );
-                },
-              ),
-            ],
-          ),
+          ],
         ),
-      );
-    } // Kết thúc _buildHabitCard
-
+      ),
+    );
+  } // Kết thúc _buildHabitCard
 } // Kết thúc HabitsScreenState

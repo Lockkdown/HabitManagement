@@ -1319,44 +1319,46 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const Text('Xóa tất cả dữ liệu', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '⚠️ CẢNH BÁO: Hành động này sẽ xóa vĩnh viễn tất cả dữ liệu bao gồm:',
-                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                '• Tất cả thói quen và lịch sử hoàn thành\n'
-                '• Thông tin cá nhân và cài đặt\n'
-                '• Dữ liệu thống kê và báo cáo\n'
-                '• Tất cả cài đặt tùy chỉnh',
-                style: TextStyle(color: Colors.white70),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Để xác nhận, vui lòng nhập "XÓA TẤT CẢ" vào ô bên dưới:',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: confirmController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  hintText: 'Nhập "XÓA TẤT CẢ" để xác nhận',
-                  hintStyle: TextStyle(color: Colors.white54),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.red),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.red, width: 2),
-                  ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '⚠️ CẢNH BÁO: Hành động này sẽ xóa vĩnh viễn tất cả dữ liệu bao gồm:',
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                 ),
-                onChanged: (value) => setState(() {}),
-              ),
-            ],
+                const SizedBox(height: 12),
+                const Text(
+                  '• Tất cả thói quen và lịch sử hoàn thành\n'
+                  '• Thông tin cá nhân và cài đặt\n'
+                  '• Dữ liệu thống kê và báo cáo\n'
+                  '• Tất cả cài đặt tùy chỉnh',
+                  style: TextStyle(color: Colors.white70),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Để xác nhận, vui lòng nhập "XÓA TẤT CẢ" vào ô bên dưới:',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: confirmController,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    hintText: 'Nhập "XÓA TẤT CẢ" để xác nhận',
+                    hintStyle: TextStyle(color: Colors.white54),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.red),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.red, width: 2),
+                    ),
+                  ),
+                  onChanged: (value) => setState(() {}),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(

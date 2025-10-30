@@ -180,7 +180,7 @@ class _SelectCategoryScreenState extends ConsumerState<SelectCategoryScreen> {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: defaultCategories.length,
-      itemBuilder: (context, index) => _buildCategoryCard(defaultCategories[index]), // Gọi card như cũ
+      itemBuilder: (context, index) => _buildCategoryCard(defaultCategories[index], isUserCategory: false),
     );
   }
 
@@ -197,12 +197,12 @@ class _SelectCategoryScreenState extends ConsumerState<SelectCategoryScreen> {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: userCategories.length,
-      itemBuilder: (context, index) => _buildCategoryCard(userCategories[index]), // Gọi card như cũ
+      itemBuilder: (context, index) => _buildCategoryCard(userCategories[index], isUserCategory: true),
     );
   }
 
   // Sửa _buildCategoryCard để gọi hàm xử lý mới
-  Widget _buildCategoryCard(CategoryModel category) {
+  Widget _buildCategoryCard(CategoryModel category, {required bool isUserCategory}) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
@@ -216,7 +216,20 @@ class _SelectCategoryScreenState extends ConsumerState<SelectCategoryScreen> {
         ),
         title: Text(category.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
         subtitle: Text('${category.habitCount} thói quen', style: TextStyle(fontSize: 14, color: Colors.grey[500])),
-        trailing: const Icon(LucideIcons.chevronRight),
+        trailing: isUserCategory 
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // FIX: Ẩn nút xóa cho danh mục "Không có danh mục"
+                if (category.name != 'Không có danh mục')
+                  IconButton(
+                    icon: const Icon(LucideIcons.trash2, color: Colors.red, size: 20),
+                    onPressed: _isProcessingSelection ? null : () => _confirmDeleteCategory(category),
+                  ),
+                const Icon(LucideIcons.chevronRight),
+              ],
+            )
+          : const Icon(LucideIcons.chevronRight),
         enabled: !_isProcessingSelection, // Disable khi đang xử lý
         onTap: _isProcessingSelection ? null : () {
             // Gọi hàm xử lý mới
@@ -224,5 +237,58 @@ class _SelectCategoryScreenState extends ConsumerState<SelectCategoryScreen> {
         },
       ),
     );
+  }
+
+  // Hàm confirm và xóa category
+  Future<void> _confirmDeleteCategory(CategoryModel category) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xác nhận xóa'),
+        content: Text('Bạn có chắc muốn xóa danh mục "${category.name}"?\n\nLưu ý: Các thói quen thuộc danh mục này sẽ không bị xóa.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      try {
+        final apiService = ref.read(habitApiServiceProvider);
+        await apiService.deleteCategory(category.id);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Đã xóa danh mục "${category.name}"')),
+          );
+          // Refresh lại danh sách
+          ref.invalidate(categoriesProvider);
+        }
+      } catch (e) {
+        if (mounted) {
+          // Parse error message từ Exception
+          String errorMessage = e.toString();
+          if (errorMessage.contains('Exception:')) {
+            errorMessage = errorMessage.replaceFirst('Exception:', '').trim();
+          }
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMessage),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    }
   }
 }
